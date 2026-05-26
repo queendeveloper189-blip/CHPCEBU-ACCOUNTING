@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Admin Dashboard - Trainees Accounting System</title>
+  <link rel="icon" href="/images/icon-192x192.svg" type="image/svg+xml">
+  
+  <link href="/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/bootstrap-icons.css">
+  <link href="/css/theme.css" rel="stylesheet">
+  <link href="/css/custom-responsive.css" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #f5f7fa;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #10572b 0%, #0a611f 100%);
+      min-height: 100vh;
+      color: white;
+      padding: 20px;
+      position: fixed;
+      width: 250px;
+      left: 0;
+      top: 0;
+      overflow-y: auto;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-header {
+      text-align: center;
+      padding-bottom: 25px;
+      border-bottom: 1px solid rgba(10, 224, 10, 0.1);
+      margin-bottom: 25px;
+    }
+
+    .sidebar-header h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .sidebar-header small {
+      color: #bdc3c7;
+      font-size: 12px;
+    }
+
+    .nav-menu {
+      list-style: none;
+    }
+
+    .nav-menu li {
+      margin-bottom: 5px;
+    }
+
+    .nav-menu a {
+      color: #ecf0f1;
+      text-decoration: none;
+      padding: 12px 15px;
+      display: block;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      border-left: 4px solid transparent;
+    }
+
+    .nav-menu a:hover,
+    .nav-menu a.active {
+      background-color: rgba(52, 152, 219, 0.3);
+      border-left-color: #3498db;
+      padding-left: 20px;
+    }
+
+    .nav-menu a i {
+      margin-right: 10px;
+      width: 20px;
+    }
+
+    .main-content {
+      margin-left: 250px;
+      padding: 20px;
+    }
+
+    .topbar {
+      background: white;
+      padding: 15px 25px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .topbar h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin: 0;
+    }
+
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .user-info {
+      text-align: right;
+    }
+
+    .user-info small {
+      color: #7f8c8d;
+    }
+
+    .btn-logout {
+      padding: 8px 15px;
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-logout:hover {
+      background-color: #c0392b;
+    }
+
+    .card {
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-header {
+      background: white;
+      border-bottom: 2px solid #e0e0e0;
+      padding: 20px;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      text-align: center;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-card .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card .number {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+
+    .stat-card .label {
+      color: #7f8c8d;
+      font-size: 13px;
+      margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card.primary .icon { color: #3498db; }
+    .stat-card.success .icon { color: #27ae60; }
+    .stat-card.warning .icon { color: #f39c12; }
+    .stat-card.danger .icon { color: #e74c3c; }
+
+    .btn-primary, .btn-success, .btn-danger {
+      border: none;
+      border-radius: 6px;
+      padding: 10px 15px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background-color: #3498db;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+    }
+
+    .btn-success {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background-color: #229954;
+    }
+
+    .table {
+      margin-bottom: 0;
+    }
+
+    .table thead {
+      background-color: #f5f7fa;
+    }
+
+    .table th {
+      border: none;
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table td {
+      border-color: #e0e0e0;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    .badge {
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .modal {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      border-radius: 10px;
+      border: none;
+    }
+
+    .modal-header {
+      background-color: #f5f7fa;
+      border-bottom: 2px solid #e0e0e0;
+      border-radius: 10px 10px 0 0;
+    }
+
+    .form-control, .form-select {
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .form-control:focus, .form-select:focus {
+      border-color: #3498db;
+      box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #7f8c8d;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 200px;
+      }
+
+      .main-content {
+        margin-left: 200px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .stat-card {
+        margin-bottom: 15px;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .sidebar {
+        position: absolute;
+        width: 250px;
+        z-index: 1000;
+        height: auto;
+      }
+
+      .main-content {
+        margin-left: 0;
+        padding: 15px;
+      }
+
+      .topbar {
+        padding: 15px;
+      }
+
+      .topbar h2 {
+        font-size: 18px;
+      }
+
+      .card {
+        margin-bottom: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="mobile-overlay" class="mobile-overlay" tabindex="-1" aria-hidden="true"></div>
+  <!-- Sidebar -->
+  <div class="sidebar" role="navigation" aria-label="Main sidebar">
+    <div class="sidebar-header">
+      <img src="/images/icon-192x192.svg" alt="TAS" class="brand-logo">
+      <div>
+        <div class="brand-title">TAS</div>
+        <div class="brand-sub">Admin Portal</div>
+      </div>
+    </div>
+
+    <ul class="nav-menu">
+      <li><a href="#" data-page="dashboard" class="nav-link active"><i class="bi bi-house-door"></i> Dashboard</a></li>
+      <li><a href="#" data-page="students" class="nav-link"><i class="bi bi-people"></i> Students</a></li>
+      <li><a href="#" data-page="announcements" class="nav-link"><i class="bi bi-megaphone"></i> Announcements</a></li>
+      <li><a href="#" data-page="soa-templates" class="nav-link"><i class="bi bi-file-earmark-text"></i> SOA Templates</a></li>
+      <li><a href="#" data-page="soa" class="nav-link"><i class="bi bi-receipt"></i> Statements</a></li>
+      <li><a href="#" data-page="requests" class="nav-link"><i class="bi bi-inbox"></i> Requests</a></li>
+      <li><a href="#" data-page="password-requests" class="nav-link"><i class="bi bi-key"></i> Password Requests</a></li>
+      <li><a href="#" data-page="chpay" class="nav-link"><i class="bi bi-credit-card"></i> CHPay Online</a></li>
+      <li><a href="#" data-page="reports" class="nav-link"><i class="bi bi-file-earmark-bar-graph"></i> Generate Report</a></li>
+      <li class="nav-sep">
+        <a href="#" id="logout-btn" class="nav-link"><i class="bi bi-box-arrow-right"></i> Logout</a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Topbar -->
+    <div class="topbar">
+      <button id="sidebarToggle" class="sidebar-toggle d-md-none" aria-label="Open sidebar"><i class="bi bi-list"></i></button>
+      <h2 id="page-title">Dashboard</h2>
+      <div class="user-menu">
+        <div class="user-info">
+          <div id="user-name" class="user-name-bold">Admin</div>
+          <small>System Administrator</small>
+        </div>
+        <button class="btn-logout" id="logout-btn-top">Logout</button>
+      </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard-page" class="page-content">
+      <div class="row">
+        <div class="col-md-3 col-sm-6">
+          <div class="stat-card primary">
+            <div class="icon"><i class="bi bi-people"></i></div>
+            <div class="number" id="total-students">0</div>
+            <div class="label">Total Students</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="stat-card success">
+            <div class="icon"><i class="bi bi-receipt"></i></div>
+            <div class="number" id="total-soas">0</div>
+            <div class="label">Statements</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="stat-card warning">
+            <div class="icon"><i class="bi bi-inbox"></i></div>
+            <div class="number" id="pending-requests">0</div>
+            <div class="label">Pending Requests</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+          <div class="stat-card danger">
+            <div class="icon"><i class="bi bi-exclamation-circle"></i></div>
+            <div class="number" id="pending-balance">₱0</div>
+            <div class="label">Outstanding</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h5>Recent Students</h5>
+            </div>
+            <div class="card-body">
+              <div id="recent-students" class="no-data">Loading...</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h5>Recent Requests</h5>
+            </div>
+            <div class="card-body">
+              <div id="recent-requests" class="no-data">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Students Page -->
+    <div id="students-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5>Student Management</h5>
+            <button id="add-student-btn" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#studentModal">
+              <i class="bi bi-plus-circle"></i> Add Student
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <input type="text" id="student-search" class="form-control mb-3" placeholder="Search by ID, name, or contact...">
+          <div id="students-table">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOA Templates Page -->
+    <div id="soa-templates-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5>SOA Templates</h5>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#templateModal">
+              <i class="bi bi-plus-circle"></i> New Template
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="templates-content">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOA Page -->
+    <div id="soa-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5>Statements of Account</h5>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#soaModal">
+              <i class="bi bi-plus-circle"></i> Create SOA
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="soa-content">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requests Page -->
+    <div id="requests-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <h5 id="requests-page-title">Student Requests</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+            <div class="btn-group" role="group" aria-label="Request view selector">
+              <button class="btn btn-outline-primary btn-sm active" data-request-view="student">Student Requests</button>
+              <button class="btn btn-outline-primary btn-sm" data-request-view="password">Password Requests</button>
+            </div>
+            <div class="btn-group" role="group" aria-label="Request filter selector">
+              <button class="btn btn-outline-primary btn-sm" data-filter="all">All</button>
+              <button class="btn btn-outline-primary btn-sm" data-filter="pending">Pending</button>
+              <button class="btn btn-outline-primary btn-sm" data-filter="in_review">In Review</button>
+              <button class="btn btn-outline-primary btn-sm" data-filter="ready">Ready</button>
+            </div>
+          </div>
+          <div id="requests-content">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Requests Page (Quick Access) -->
+    <div id="password-requests-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <h5 id="password-requests-page-title">Password Change Requests</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+            <div class="btn-group" role="group" aria-label="Filter selector">
+              <button class="btn btn-outline-primary btn-sm active" data-pw-filter="all">All</button>
+              <button class="btn btn-outline-primary btn-sm" data-pw-filter="pending">Pending</button>
+              <button class="btn btn-outline-primary btn-sm" data-pw-filter="accepted">Accepted</button>
+              <button class="btn btn-outline-primary btn-sm" data-pw-filter="rejected">Rejected</button>
+            </div>
+          </div>
+          <div id="password-requests-content">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Announcements Page -->
+    <div id="announcements-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header accent-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center" style="gap:10px;">
+              <i class="bi bi-megaphone" style="font-size:20px;"></i>
+              <div>
+                <h5 style="margin:0; font-size:18px; font-weight:700;">Announcements</h5>
+                <small style="opacity:0.9;">Create and manage system announcements</small>
+              </div>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal" id="new-announcement-btn">
+              <i class="bi bi-plus-circle"></i> New Announcement
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="announcements-content">
+            <div style="padding:30px; text-align:center;">
+              <i class="bi bi-hourglass-split" style="font-size:32px; color:var(--accent); margin-bottom:10px; display:block;"></i>
+              <p class="muted">Loading announcements...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHPay Page -->
+    <div id="chpay-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header accent-header">
+          <div class="d-flex align-items-center" style="gap:10px;">
+            <i class="bi bi-credit-card" style="font-size:20px;"></i>
+            <h5 style="margin:0; font-size:18px; font-weight:700;">CHPay Online Submissions</h5>
+          </div>
+          <small style="opacity:0.9; display:block; margin-top:6px;">Verify and manage trainee online payments</small>
+        </div>
+        <div class="card-body">
+          <div id="chpay-content">
+            <div style="padding:30px; text-align:center;">
+              <i class="bi bi-hourglass-split" style="font-size:32px; color:var(--accent); margin-bottom:10px; display:block;"></i>
+              <p class="muted">Loading CHPay submissions...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports Page -->
+    <div id="reports-page" class="page-content" style="display: none;">
+      <div class="card">
+        <div class="card-header accent-header">
+          <div class="d-flex align-items-center" style="gap:10px;">
+            <i class="bi bi-file-earmark-bar-graph" style="font-size:20px;"></i>
+            <h5 style="margin:0; font-size:18px; font-weight:700;">Payment Reports</h5>
+          </div>
+          <small style="opacity:0.9; display:block; margin-top:6px;">Generate monthly and yearly payment reports</small>
+        </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label class="form-label">Select Report Type</label>
+              <select id="report-type" class="form-select">
+                <option value="monthly">Monthly Report</option>
+                <option value="yearly">Yearly Report</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Select Period</label>
+              <input type="month" id="report-month" class="form-control">
+              <input type="number" id="report-year" class="form-control" min="2020" max="2099" placeholder="Select Year" style="display:none;">
+            </div>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-md-12">
+              <button class="btn btn-primary" id="generate-report-btn"><i class="bi bi-download"></i> Generate Report</button>
+              <button class="btn btn-secondary" id="export-report-btn" style="display:none;"><i class="bi bi-file-earmark-excel"></i> Export to Excel</button>
+            </div>
+          </div>
+
+          <div id="report-content">
+            <!-- Report will be displayed here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Student Modal -->
+  <div class="modal fade" id="studentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="studentModalLabel">Add New Student</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="student-form">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-system-id">System ID *</label>
+                <input type="text" id="student-system-id" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-course">Course *</label>
+                <select id="student-course" class="form-select" required>
+                  <option value="">Select Course</option>
+                  <option value="Healthcare Services NCII">Healthcare Services NCII</option>
+                  <option value="Caregiving NCII">Caregiving NCII</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-first-name">First Name *</label>
+                <input type="text" id="student-first-name" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-last-name">Last Name *</label>
+                <input type="text" id="student-last-name" class="form-control" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-contact">Contact No. *</label>
+                <input type="tel" id="student-contact" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-schedule">Schedule *</label>
+                <select id="student-schedule" class="form-select" required>
+                  <option value="">Select Schedule</option>
+                  <option value="DAY">DAY</option>
+                  <option value="NIGHT">NIGHT</option>
+                  <option value="WEEKEND">WEEKEND</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-date-started">Date Started *</label>
+                <input type="date" id="student-date-started" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="student-email">Email</label>
+                <input type="email" id="student-email" class="form-control">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label" for="student-address">Address</label>
+              <textarea id="student-address" class="form-control" rows="2"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-student-btn">Save Student</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Template Modal -->
+  <div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="templateModalLabel">New Template</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="template-form">
+            <div class="mb-3">
+              <label class="form-label" for="template-course">Course *</label>
+              <select id="template-course" class="form-select" required>
+                <option value="">Select Course</option>
+                <option value="Healthcare Services NCII">Healthcare Services NCII</option>
+                <option value="Caregiving NCII">Caregiving NCII</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="template-name">Template Name *</label>
+              <input type="text" id="template-name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="template-description">Description</label>
+              <textarea id="template-description" class="form-control" rows="3"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-template-btn">Save Template</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create SOA Modal -->
+  <div class="modal fade" id="soaModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Create Statement of Account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="soa-form">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="soa-trainee-select">Student *</label>
+                <select id="soa-trainee-select" class="form-select" required>
+                  <option value="">Select Student</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="soa-template-select">SOA Template *</label>
+                <select id="soa-template-select" class="form-select" required>
+                  <option value="">Select Template</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="soa-issue-date">Issue Date *</label>
+                <input type="date" id="soa-issue-date" class="form-control" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="soa-due-date">Due Date</label>
+                <input type="date" id="soa-due-date" class="form-control">
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Line Items</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="add-soa-item-btn">Add Item</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="soa-items-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Type</th>
+                      <th>Amount</th>
+                      <th class="text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="d-flex justify-content-end mt-3">
+                <div class="fw-bold">Total Amount: <span id="soa-total-amount">₱0.00</span></div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-soa-btn">Create SOA</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-md">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Record Payment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">SOA Number</label>
+            <div id="payment-soa-number" class="fw-bold">-</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Current Paid</label>
+            <div id="payment-current-paid" class="fw-bold">₱0.00</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="payment-amount">Payment Amount *</label>
+            <input type="number" id="payment-amount" class="form-control" min="0.01" step="0.01" placeholder="0.00">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="payment-note">Note (optional)</label>
+            <textarea id="payment-note" class="form-control" rows="2" placeholder="Payment note or reference"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-payment-btn">Save Payment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment History Modal -->
+  <div class="modal fade" id="paymentHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Payment History</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="payment-history-content">
+          <div class="no-data">Loading payment history...</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOA Details Modal -->
+  <div class="modal fade" id="soaDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">SOA Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="soa-details-body">
+          <div class="no-data">Loading SOA details...</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Request Details Modal -->
+  <div class="modal fade" id="requestDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Request Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="request-details-body">
+          <div class="no-data">Loading request details...</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logout Confirmation Modal -->
+  <div class="modal fade" id="logoutModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirm Logout</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          Are you sure you want to logout?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirm-logout">Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Announcement Modal -->
+  <div class="modal fade" id="announcementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="announcementModalLabel">New Announcement</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="announcement-form">
+            <div class="mb-3">
+              <label class="form-label" for="announcement-title">Title *</label>
+              <input type="text" id="announcement-title" class="form-control" required maxlength="255">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="announcement-content">Content *</label>
+              <textarea id="announcement-content" class="form-control" rows="5" required></textarea>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="announcement-priority">Priority</label>
+                <select id="announcement-priority" class="form-select">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="announcement-audience">Target Audience</label>
+                <select id="announcement-audience" class="form-select">
+                  <option value="all" selected>All Trainees</option>
+                  <option value="specific_course">Specific Course</option>
+                  <option value="specific_schedule">Specific Schedule</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3" id="course-select-div" style="display:none;">
+                <label class="form-label" for="announcement-course">Course</label>
+                <select id="announcement-course" class="form-select">
+                  <option value="">Select Course</option>
+                  <option value="Healthcare Services NCII">Healthcare Services NCII</option>
+                  <option value="Caregiving NCII">Caregiving NCII</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3" id="schedule-select-div" style="display:none;">
+                <label class="form-label" for="announcement-schedule">Schedule</label>
+                <select id="announcement-schedule" class="form-select">
+                  <option value="">Select Schedule</option>
+                  <option value="DAY">DAY</option>
+                  <option value="NIGHT">NIGHT</option>
+                  <option value="WEEKEND">WEEKEND</option>
+                </select>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-announcement-btn">Save Announcement</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/admin-dashboard.js?v=3"></script>
+  <script>
+    (function(){
+      var toggle = document.getElementById('sidebarToggle');
+      var sidebar = document.querySelector('.sidebar');
+      var overlay = document.getElementById('mobile-overlay');
+      if(!toggle || !sidebar || !overlay) return;
+
+      // Only set inert on mobile, not on desktop
+      function updateSidebarInert() {
+        const isMobile = window.innerWidth < 992;
+        if (isMobile) {
+          sidebar.setAttribute('inert', '');
+          toggle.setAttribute('aria-expanded', 'false');
+        } else {
+          // Desktop - sidebar is always visible and clickable
+          sidebar.removeAttribute('inert');
+          toggle.setAttribute('aria-expanded', 'true');
+        }
+      }
+
+      // Initialize based on screen size
+      updateSidebarInert();
+
+      function openSidebar(){
+        sidebar.classList.add('open');
+        overlay.classList.add('show');
+        sidebar.removeAttribute('inert');
+        toggle.setAttribute('aria-expanded', 'true');
+        // focus first nav link
+        var firstLink = sidebar.querySelector('.nav-menu a');
+        if(firstLink) firstLink.focus();
+      }
+      function closeSidebar(){
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+        sidebar.setAttribute('inert', '');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
+      }
+
+      toggle.addEventListener('click', function(e){
+        if(sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
+      });
+
+      overlay.addEventListener('click', closeSidebar);
+
+      // Close sidebar with Escape key
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+      });
+
+      // Close sidebar when a nav link is clicked (mobile)
+      document.querySelectorAll('.nav-menu a').forEach(function(a){
+        a.addEventListener('click', function(){
+          if(window.innerWidth < 992) closeSidebar();
+        });
+      });
+
+      // Handle window resize for responsive behavior
+      window.addEventListener('resize', updateSidebarInert);
+    })();
+  </script>
+</body>
+</html>

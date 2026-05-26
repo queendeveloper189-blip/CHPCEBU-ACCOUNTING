@@ -1,0 +1,73 @@
+/* Custom responsive tweaks for mobile devices */
+/* Keeps the existing desktop layout but makes sidebar off-canvas on small screens */
+
+/* Overlay shown when sidebar is open on small screens */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 999;
+}
+
+/* Sidebar off-canvas behavior */
+.sidebar {
+  transition: transform 0.25s ease, visibility 0.25s ease;
+}
+
+@media (max-width: 991.98px) {
+  .sidebar {
+    transform: translateX(-100%);
+    position: fixed;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    width: 260px;
+    z-index: 1000;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 16px;
+  }
+
+  .topbar .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: none;
+    background: white;
+    color: #10572b;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    margin-right: 8px;
+  }
+
+  .mobile-overlay.show {
+    display: block;
+  }
+
+  /* Make touch targets larger */
+  .nav-menu a {
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+
+  .btn-logout, .btn-sm, .btn-primary, .btn-success, .btn-danger {
+    touch-action: manipulation;
+  }
+}
+
+/* Small screens - slightly reduce paddings for very small devices */
+@media (max-width: 480px) {
+  .topbar h2 { font-size: 18px; }
+  .stat-card .number { font-size: 22px; }
+  .stat-card .icon { font-size: 26px; }
+}

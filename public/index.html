@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Trainees Accounting & Registrar Management System">
+  <meta name="theme-color" content="#2c3e50">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Trainees Accounting">
+  
+  <title>Trainees Accounting System - CHPCEBU</title>
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/images/icon-192x192.svg">
+  <link rel="apple-touch-icon" href="/images/icon-192x192.svg">
+  
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <link href="/css/theme.css" rel="stylesheet">
+  <link href="/css/custom-responsive.css" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: Inter, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Use themed login styles from theme.css */
+    .login-container { /* fallback in case theme not loaded */ }
+    .login-card { /* fallback */ }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(0,0,0,0.06);
+      border-radius: 50%;
+      border-top-color: rgba(255,255,255,0.6);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #app { display: none; }
+  </style>
+</head>
+<body>
+  <!-- Login Page -->
+  <div id="login-page">
+    <div class="login-container">
+      <div class="login-wrapper">
+        <!-- Left Panel: User Selection -->
+        <div class="login-left-panel">
+          <div class="login-select-header">
+            <h2>Choose User</h2>
+          </div>
+          <div class="user-selection-buttons">
+            <button class="user-selection-btn" data-type="trainee">
+              <i class="bi bi-person-circle"></i>
+              <span>TRAINEES</span>
+            </button>
+            <button class="user-selection-btn" data-type="admin">
+              <i class="bi bi-shield-lock"></i>
+              <span>ADMIN</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Panel: Login Form -->
+        <div class="login-right-panel">
+          <div class="login-form-container">
+            <h1 class="login-form-title">Log In</h1>
+            
+            <div id="alert-container"></div>
+
+            <form id="login-form">
+              <div class="form-group">
+                <label class="form-label" id="field1-label">Username</label>
+                <input type="text" id="field1" class="form-control" placeholder="" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="" required>
+              </div>
+
+              <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Verifying credentials...</p>
+              </div>
+
+              <button type="submit" class="btn-login">SIGN IN</button>
+
+              <div class="login-footer-link">
+                <a href="#" id="forgot-password-link">Forgot Password?</a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forgot Password Modal -->
+  <div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Forgot Password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="forgot-password-form">
+            <div class="mb-3">
+              <label class="form-label">Login As</label>
+              <div id="forgot-password-user-type" class="fw-bold">ADMIN</div>
+              <input type="hidden" id="forgot-password-user-type-input" name="userType" value="admin">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" id="forgot-password-identifier-label">Admin Username</label>
+              <input type="text" id="forgot-password-identifier" class="form-control" placeholder="Enter admin username" required>
+            </div>
+            <div class="mb-3" id="forgot-password-new-password-group" style="display: none;">
+              <label class="form-label">New Password (Trainee)</label>
+              <input type="password" id="forgot-password-new-password" class="form-control" placeholder="Enter new password">
+            </div>
+            <div class="mb-3" id="forgot-password-new-password-confirm-group" style="display: none;">
+              <label class="form-label">Confirm Password (Trainee)</label>
+              <input type="password" id="forgot-password-new-password-confirm" class="form-control" placeholder="Confirm new password">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" id="forgot-password-email" class="form-control" placeholder="Enter your email">
+            </div>
+            <div class="mb-3" id="forgot-password-valid-id-group" style="display: none;">
+              <label class="form-label">Upload Valid ID (Trainee)</label>
+              <input type="file" id="forgot-password-valid-id" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+              <small class="text-muted">Upload a scan or photo of your valid ID (PDF, JPG, PNG, DOC)</small>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Message (optional)</label>
+              <textarea id="forgot-password-message" class="form-control" rows="3" placeholder="Add a short note or context"></textarea>
+            </div>
+            <div id="forgot-password-alert"></div>
+            <div class="d-flex justify-content-end gap-2">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary">Submit Request</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app"></div>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/app.js"></script>
+
+  <script>
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.log('Service Worker registered'))
+        .catch(err => console.log('Service Worker registration failed:', err));
+    }
+
+    // User selection buttons
+    let selectedUserType = 'admin'; // Default
+    document.querySelectorAll('.user-selection-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.user-selection-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedUserType = this.dataset.type;
+        
+        const label = document.getElementById('field1-label');
+        const input = document.getElementById('field1');
+        
+        if (selectedUserType === 'admin') {
+          label.textContent = 'Admin Username';
+          input.placeholder = 'Enter admin username';
+        } else {
+          label.textContent = 'Trainee ID';
+          input.placeholder = 'e.g., 2024-001';
+        }
+        
+        input.focus();
+      });
+    });
+
+    // Set initial active button to admin
+    document.querySelector('[data-type="admin"]').classList.add('active');
+
+    // Login form handler
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const username = document.getElementById('field1').value;
+      const password = document.getElementById('password').value;
+      const loadingDiv = document.getElementById('loading');
+      const alertContainer = document.getElementById('alert-container');
+
+      if (!username || !password) {
+        showAlert('Please fill in all fields', 'danger', alertContainer);
+        return;
+      }
+
+      loadingDiv.classList.add('show');
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, userType: selectedUserType })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          showAlert(data.error || 'Login failed', 'danger', alertContainer);
+          loadingDiv.classList.remove('show');
+          return;
+        }
+
+        // Store session info
+        localStorage.setItem('userType', selectedUserType);
+        localStorage.setItem('userId', data.user.id);
+
+        // Redirect to appropriate dashboard
+        if (selectedUserType === 'admin') {
+          window.location.href = '/admin/dashboard.html';
+        } else {
+          window.location.href = '/trainee/dashboard.html';
+        }
+
+      } catch (error) {
+        console.error('Login error:', error);
+        showAlert('Network error. Please try again.', 'danger', alertContainer);
+        loadingDiv.classList.remove('show');
+      }
+    });
+    document.getElementById('forgot-password-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+      const userTypeDisplay = document.getElementById('forgot-password-user-type');
+      const userTypeInput = document.getElementById('forgot-password-user-type-input');
+      const identifierLabel = document.getElementById('forgot-password-identifier-label');
+      const identifierInput = document.getElementById('forgot-password-identifier');
+      const newPasswordGroup = document.getElementById('forgot-password-new-password-group');
+      const newPasswordConfirmGroup = document.getElementById('forgot-password-new-password-confirm-group');
+      const validIdGroup = document.getElementById('forgot-password-valid-id-group');
+
+      if (selectedUserType === 'admin') {
+        userTypeDisplay.textContent = 'ADMIN';
+        userTypeInput.value = 'admin';
+        identifierLabel.textContent = 'Admin Username';
+        identifierInput.placeholder = 'Enter admin username';
+        newPasswordGroup.style.display = 'none';
+        newPasswordConfirmGroup.style.display = 'none';
+        validIdGroup.style.display = 'none';
+      } else {
+        userTypeDisplay.textContent = 'TRAINEE';
+        userTypeInput.value = 'trainee';
+        identifierLabel.textContent = 'Trainee ID';
+        identifierInput.placeholder = 'e.g., 2024-001';
+        newPasswordGroup.style.display = 'block';
+        newPasswordConfirmGroup.style.display = 'block';
+        validIdGroup.style.display = 'block';
+      }
+
+      document.getElementById('forgot-password-form').reset();
+      document.getElementById('forgot-password-alert').innerHTML = '';
+      modal.show();
+    });
+
+    document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userType = document.getElementById('forgot-password-user-type-input').value;
+      const identifier = document.getElementById('forgot-password-identifier').value.trim();
+      const email = document.getElementById('forgot-password-email').value.trim();
+      const message = document.getElementById('forgot-password-message').value.trim();
+      const alertContainer = document.getElementById('forgot-password-alert');
+      const validIdFile = document.getElementById('forgot-password-valid-id').files[0];
+
+      if (!identifier) {
+        showAlert('Please enter your username or trainee ID.', 'danger', alertContainer);
+        return;
+      }
+
+      // For trainees, validate new password and ID file
+      if (userType === 'trainee') {
+        const newPassword = document.getElementById('forgot-password-new-password').value.trim();
+        const confirmPassword = document.getElementById('forgot-password-new-password-confirm').value.trim();
+
+        if (!newPassword) {
+          showAlert('Please enter a new password.', 'danger', alertContainer);
+          return;
+        }
+
+        if (!confirmPassword) {
+          showAlert('Please confirm your new password.', 'danger', alertContainer);
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          showAlert('Passwords do not match.', 'danger', alertContainer);
+          return;
+        }
+
+        if (newPassword.length < 6) {
+          showAlert('Password must be at least 6 characters.', 'danger', alertContainer);
+          return;
+        }
+
+        if (!validIdFile) {
+          showAlert('Please upload a valid ID.', 'danger', alertContainer);
+          return;
+        }
+
+        // Validate file size (max 10MB)
+        if (validIdFile.size > 10 * 1024 * 1024) {
+          showAlert('File size must be less than 10MB.', 'danger', alertContainer);
+          return;
+        }
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('userType', userType);
+        formData.append('identifier', identifier);
+        formData.append('email', email);
+        formData.append('message', message);
+        
+        // Include new password for trainees
+        if (userType === 'trainee') {
+          formData.append('newPassword', document.getElementById('forgot-password-new-password').value.trim());
+          if (validIdFile) {
+            formData.append('idFile', validIdFile);
+          }
+        }
+
+        const response = await fetch('/api/auth/forgot-password-request', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          showAlert(data.error || 'Unable to submit your request.', 'danger', alertContainer);
+          return;
+        }
+
+        showAlert('Your forgot password request has been submitted. An admin will review it shortly.', 'success', alertContainer);
+        document.getElementById('forgot-password-form').reset();
+      } catch (error) {
+        console.error('Forgot password request error:', error);
+        showAlert('Network error. Please try again later.', 'danger', alertContainer);
+      }
+    });
+    function showAlert(message, type, container) {
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type} alert-dismissible fade show`;
+      alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      container.innerHTML = '';
+      container.appendChild(alert);
+    }
+
+  </script>
+</body>
+</html>

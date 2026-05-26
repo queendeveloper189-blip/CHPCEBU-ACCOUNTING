@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: trainees-accounting-system
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        fromDatabase:
+          name: trainees_db
+          property: host
+      - key: DB_USER
+        fromDatabase:
+          name: trainees_db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: trainees_db
+          property: password
+      - key: DB_NAME
+        value: trainees_accounting_system
+      - key: DB_PORT
+        fromDatabase:
+          name: trainees_db
+          property: port
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PORT
+        value: "3000"
+
+databases:
+  - name: trainees_db
+    plan: free
+    mysqlVersion: 8
