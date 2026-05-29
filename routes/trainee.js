@@ -51,29 +51,29 @@ router.get('/dashboard', isAuthenticated, isTrainee, async (req, res) => {
     const traineeId = req.session.userId;
 
     // Get trainee info
-    const [trainees] = await pool.query('SELECT * FROM trainees WHERE id = ?', [traineeId]);
+    const result = await pool.query('SELECT * FROM trainees WHERE id = $1', [traineeId]);
 
-    if (trainees.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Trainee not found' });
     }
 
-    const trainee = trainees[0];
+    const trainee = result.rows[0];
 
     // Get SOA summary
-    const [soaStats] = await pool.query(
-      'SELECT COUNT(*) as total_soas, COALESCE(SUM(total_amount), 0) as total_billings, COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(amount_remaining), 0) as total_balance FROM statements_of_account WHERE trainee_id = ?',
+    const soaStatsResult = await pool.query(
+      'SELECT COUNT(*) as total_soas, COALESCE(SUM(total_amount), 0) as total_billings, COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(amount_remaining), 0) as total_balance FROM statements_of_account WHERE trainee_id = $1',
       [traineeId]
     );
 
     // Get latest SOAs
-    const [latestSoas] = await pool.query(
-      'SELECT id, soa_number, issue_date, total_amount, amount_paid, amount_remaining, status FROM statements_of_account WHERE trainee_id = ? ORDER BY created_at DESC LIMIT 5',
+    const latestSoasResult = await pool.query(
+      'SELECT id, soa_number, issue_date, total_amount, amount_paid, amount_remaining, status FROM statements_of_account WHERE trainee_id = $1 ORDER BY created_at DESC LIMIT 5',
       [traineeId]
     );
 
     // Get pending requests
-    const [pendingRequests] = await pool.query(
-      'SELECT id, request_number, request_type, status, created_at FROM requests WHERE trainee_id = ? AND status != "released" ORDER BY created_at DESC LIMIT 5',
+    const pendingRequestsResult = await pool.query(
+      'SELECT id, request_number, request_type, status, created_at FROM requests WHERE trainee_id = $1 AND status != \'released\' ORDER BY created_at DESC LIMIT 5',
       [traineeId]
     );
 
@@ -253,7 +253,7 @@ router.get('/requests', isAuthenticated, isTrainee, async (req, res) => {
     const traineeId = req.session.userId;
     const { status } = req.query;
 
-    let query = 'SELECT id, request_number, request_type, request_details, status, priority, created_at, updated_at FROM requests WHERE trainee_id = ?';
+    let query = 'SELECT id, request_number, request_type, request_details, status, priority, created_at, updated_at FROM requests WHERE trainee_id = $1';
     const params = [traineeId];
 
     if (status) {
@@ -280,7 +280,7 @@ router.get('/requests/:id', isAuthenticated, isTrainee, async (req, res) => {
 
     // Verify trainee owns this request
     const [requests] = await pool.query(
-      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = ? AND r.trainee_id = ?',
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, \'Unassigned\') as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = $1 AND r.trainee_id = $2',,
       [requestId, traineeId]
     );
 
@@ -335,15 +335,16 @@ router.post('/requests', isAuthenticated, isTrainee, async (req, res) => {
 
     const request_number = `REQ-${Date.now()}`;
 
-    const [result] = await pool.query(
-      'INSERT INTO requests (trainee_id, request_type, request_details, request_number, status) VALUES (?, ?, ?, ?, ?)',
+    const result = await pool.query(
+      'INSERT INTO requests (trainee_id, request_type, request_details, request_number, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [traineeId, request_type, request_details, request_number, 'pending']
     );
 
     // Create notification for trainee
     try {
       await pool.query(
-        `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES (?, ?, ?, ?, ?)`,
+      await pool.query(
+        `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
         [
           traineeId,
           'Request Submitted Successfully',
@@ -351,6 +352,7 @@ router.post('/requests', isAuthenticated, isTrainee, async (req, res) => {
           'request_update',
           'unread'
         ]
+      );
       );
     } catch (notifError) {
       console.log('Notification table may not exist, skipping notification:', notifError.message);
@@ -393,22 +395,24 @@ router.post('/chpay', isAuthenticated, isTrainee, (req, res) => {
 
       const fileName = req.file ? req.file.filename : null;
       const filePath = req.file ? path.join('uploads', 'chpay', req.file.filename).replace(/\\/g, '/') : null;
-
-      try {
+result = await pool.query(
+          'INSERT INTO online_payments (trainee_id, name_of_sender, reference_number, details, amount_sent, file_name, file_path) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
         const [result] = await pool.query(
           'INSERT INTO online_payments (trainee_id, name_of_sender, reference_number, details, amount_sent, file_name, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [traineeId, name_of_sender, reference_number, details || null, amount, fileName, filePath]
         );
 
         // Create notification for trainee
-        try {
           await pool.query(
-            `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES (?, ?, ?, ?, ?)`,
+            `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
             [
               traineeId,
               'CHPay Payment Submitted',
               `Your CHPay payment submission with reference number ${reference_number} (Amount: ₱${amount.toFixed(2)}) has been received and is being verified. You will be notified once it's been reviewed.`,
-              'payment_approved',
+              'chpay_payment',
+              'unread'
+            ]
+          ); 'payment_approved',
               'unread'
             ]
           );
@@ -665,7 +669,7 @@ router.post('/change-password', isAuthenticated, isTrainee, async (req, res) => 
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
+$1 WHERE id = $2
     await pool.query(
       'UPDATE trainees SET password_hash = ? WHERE id = ?',
       [hashedPassword, traineeId]
@@ -674,7 +678,7 @@ router.post('/change-password', isAuthenticated, isTrainee, async (req, res) => 
     // Create notification for trainee
     try {
       await pool.query(
-        `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
         [
           traineeId,
           'Password Changed Successfully',
@@ -698,14 +702,15 @@ router.post('/change-password', isAuthenticated, isTrainee, async (req, res) => 
 router.get('/notifications', isAuthenticated, isTrainee, async (req, res) => {
   try {
     const traineeId = req.session.userId;
-    const [notifications] = await pool.query(
+    // Get notifications
+    const notificationsResult = await pool.query(
       `SELECT * FROM notifications 
-       WHERE trainee_id = ? 
+       WHERE trainee_id = $1 
        ORDER BY created_at DESC 
        LIMIT 50`,
       [traineeId]
     );
-    res.json(notifications);
+    res.json(notificationsResult.rows);
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: 'Failed to fetch notifications' });
@@ -719,17 +724,17 @@ router.put('/notifications/:id/read', isAuthenticated, isTrainee, async (req, re
     const notificationId = req.params.id;
 
     // Verify the notification belongs to this trainee
-    const [notifications] = await pool.query(
-      'SELECT * FROM notifications WHERE id = ? AND trainee_id = ?',
+    const notificationResult = await pool.query(
+      'SELECT * FROM notifications WHERE id = $1 AND trainee_id = $2',
       [notificationId, traineeId]
     );
 
-    if (notifications.length === 0) {
+    if (notificationResult.rows.length === 0) {
       return res.status(404).json({ error: 'Notification not found' });
     }
 
     await pool.query(
-      'UPDATE notifications SET status = ? WHERE id = ?',
+      'UPDATE notifications SET status = $1 WHERE id = $2',
       ['read', notificationId]
     );
 
@@ -746,7 +751,7 @@ router.delete('/notifications/clear', isAuthenticated, isTrainee, async (req, re
     const traineeId = req.session.userId;
     
     await pool.query(
-      'DELETE FROM notifications WHERE trainee_id = ?',
+      'DELETE FROM notifications WHERE trainee_id = $1',
       [traineeId]
     );
 
@@ -767,7 +772,7 @@ router.get('/announcements', isAuthenticated, isTrainee, async (req, res) => {
     const traineeId = req.session.userId;
 
     // Get trainee info to filter announcements by course/schedule
-    const [trainees] = await pool.query('SELECT course, schedule FROM trainees WHERE id = ?', [traineeId]);
+    const traineesResult = await pool.query('SELECT course, schedule FROM trainees WHERE id = $1', [traineeId]);
 
     if (trainees.length === 0) {
       return res.json([]);

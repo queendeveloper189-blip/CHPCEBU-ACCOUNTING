@@ -93,28 +93,28 @@ router.get('/trainees', isAuthenticated, isAdmin, async (req, res) => {
 // Get single trainee
 router.get('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
   try {
-    const [trainees] = await pool.query('SELECT * FROM trainees WHERE id = ?', [req.params.id]);
+    const result = await pool.query('SELECT * FROM trainees WHERE id = $1', [req.params.id]);
     
-    if (trainees.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Trainee not found' });
     }
 
     // Get SOAs
-    const [soas] = await pool.query(
-      'SELECT * FROM statements_of_account WHERE trainee_id = ? ORDER BY created_at DESC',
+    const soaResult = await pool.query(
+      'SELECT * FROM statements_of_account WHERE trainee_id = $1 ORDER BY created_at DESC',
       [req.params.id]
     );
 
     // Get requests
-    const [requests] = await pool.query(
-      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.trainee_id = ? ORDER BY r.created_at DESC LIMIT 10',
+    const requestResult = await pool.query(
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, \'Unassigned\') as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.trainee_id = $1 ORDER BY r.created_at DESC LIMIT 10',
       [req.params.id]
     );
 
     res.json({
-      trainee: trainees[0],
-      soas,
-      requests
+      trainee: result.rows[0],
+      soas: soaResult.rows,
+      requests: requestResult.rows
     });
 
   } catch (error) {
@@ -133,26 +133,26 @@ router.post('/trainees', isAuthenticated, isAdmin, async (req, res) => {
     }
 
     // Check if system_id already exists
-    const [existing] = await pool.query('SELECT id FROM trainees WHERE system_id = ?', [system_id]);
-    if (existing.length > 0) {
+    const existingResult = await pool.query('SELECT id FROM trainees WHERE system_id = $1', [system_id]);
+    if (existingResult.rows.length > 0) {
       return res.status(400).json({ error: 'System ID already exists' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO trainees (system_id, first_name, last_name, middle_name, contact_number, email, course, schedule, date_started, address, emergency_contact, emergency_contact_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    const insertResult = await pool.query(
+      'INSERT INTO trainees (system_id, first_name, last_name, middle_name, contact_number, email, course, schedule, date_started, address, emergency_contact, emergency_contact_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id',
       [system_id, first_name, last_name, middle_name, contact_number, email, course, schedule, date_started, address, emergency_contact, emergency_contact_name]
     );
 
     // Log activity
     await pool.query(
-      'INSERT INTO activity_logs (user_id, user_type, action, description) VALUES (?, ?, ?, ?)',
+      'INSERT INTO activity_logs (user_id, user_type, action, description) VALUES ($1, $2, $3, $4)',
       [req.session.userId, 'admin', 'CREATE_TRAINEE', `Created trainee: ${first_name} ${last_name} (${system_id})`]
     );
 
     res.status(201).json({
       success: true,
       message: 'Trainee created successfully',
-      id: result.insertId
+      id: insertResult.rows[0].id
     });
 
   } catch (error) {
@@ -168,18 +168,19 @@ router.put('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
 
     const updates = [];
     const params = [];
+    let paramIndex = 1;
 
-    if (first_name) { updates.push('first_name = ?'); params.push(first_name); }
-    if (last_name) { updates.push('last_name = ?'); params.push(last_name); }
-    if (middle_name !== undefined) { updates.push('middle_name = ?'); params.push(middle_name); }
-    if (contact_number) { updates.push('contact_number = ?'); params.push(contact_number); }
-    if (email) { updates.push('email = ?'); params.push(email); }
-    if (course) { updates.push('course = ?'); params.push(course); }
-    if (schedule) { updates.push('schedule = ?'); params.push(schedule); }
-    if (address) { updates.push('address = ?'); params.push(address); }
-    if (emergency_contact) { updates.push('emergency_contact = ?'); params.push(emergency_contact); }
-    if (emergency_contact_name) { updates.push('emergency_contact_name = ?'); params.push(emergency_contact_name); }
-    if (status) { updates.push('status = ?'); params.push(status); }
+    if (first_name) { updates.push(`first_name = $${paramIndex++}`); params.push(first_name); }
+    if (last_name) { updates.push(`last_name = $${paramIndex++}`); params.push(last_name); }
+    if (middle_name !== undefined) { updates.push(`middle_name = $${paramIndex++}`); params.push(middle_name); }
+    if (contact_number) { updates.push(`contact_number = $${paramIndex++}`); params.push(contact_number); }
+    if (email) { updates.push(`email = $${paramIndex++}`); params.push(email); }
+    if (course) { updates.push(`course = $${paramIndex++}`); params.push(course); }
+    if (schedule) { updates.push(`schedule = $${paramIndex++}`); params.push(schedule); }
+    if (address) { updates.push(`address = $${paramIndex++}`); params.push(address); }
+    if (emergency_contact) { updates.push(`emergency_contact = $${paramIndex++}`); params.push(emergency_contact); }
+    if (emergency_contact_name) { updates.push(`emergency_contact_name = $${paramIndex++}`); params.push(emergency_contact_name); }
+    if (status) { updates.push(`status = $${paramIndex++}`); params.push(status); }
 
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -187,11 +188,11 @@ router.put('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
 
     params.push(req.params.id);
 
-    await pool.query(`UPDATE trainees SET ${updates.join(', ')} WHERE id = ?`, params);
+    await pool.query(`UPDATE trainees SET ${updates.join(', ')} WHERE id = $${paramIndex}`, params);
 
     // Log activity
     await pool.query(
-      'INSERT INTO activity_logs (user_id, user_type, action, description) VALUES (?, ?, ?, ?)',
+      'INSERT INTO activity_logs (user_id, user_type, action, description) VALUES ($1, $2, $3, $4)',
       [req.session.userId, 'admin', 'UPDATE_TRAINEE', `Updated trainee ID: ${req.params.id}`]
     );
 
