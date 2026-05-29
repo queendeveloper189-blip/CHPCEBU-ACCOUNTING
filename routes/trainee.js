@@ -280,7 +280,7 @@ router.get('/requests/:id', isAuthenticated, isTrainee, async (req, res) => {
 
     // Verify trainee owns this request
     const [requests] = await pool.query(
-      'SELECT r.*, u.full_name as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = ? AND r.trainee_id = ?',
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = ? AND r.trainee_id = ?',
       [requestId, traineeId]
     );
 

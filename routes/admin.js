@@ -107,7 +107,7 @@ router.get('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
 
     // Get requests
     const [requests] = await pool.query(
-      'SELECT r.*, u.full_name as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.trainee_id = ? ORDER BY r.created_at DESC LIMIT 10',
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.trainee_id = ? ORDER BY r.created_at DESC LIMIT 10',
       [req.params.id]
     );
 
@@ -205,8 +205,9 @@ router.put('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 // Delete trainee
 router.delete('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
+  let connection = null;
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     
     // Get trainee info before deletion
     const [trainees] = await connection.query('SELECT * FROM trainees WHERE id = ?', [req.params.id]);
@@ -231,6 +232,11 @@ router.delete('/trainees/:id', isAuthenticated, isAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting trainee:', error);
+    try {
+      if (connection) connection.release();
+    } catch (releaseError) {
+      console.error('Error releasing connection:', releaseError);
+    }
     res.status(500).json({ error: 'Failed to delete trainee' });
   }
 });
@@ -352,8 +358,9 @@ router.put('/soa-templates/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 // Delete SOA template
 router.delete('/soa-templates/:id', isAuthenticated, isAdmin, async (req, res) => {
+  let connection = null;
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
 
     const [templates] = await connection.query('SELECT * FROM soa_templates WHERE id = ?', [req.params.id]);
     if (templates.length === 0) {
@@ -367,6 +374,13 @@ router.delete('/soa-templates/:id', isAuthenticated, isAdmin, async (req, res) =
     res.json({ success: true, message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Error deleting template:', error);
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
     res.status(500).json({ error: 'Failed to delete template' });
   }
 });
@@ -580,6 +594,7 @@ router.put('/soa/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 // Record payment for SOA
 router.put('/soa/:id/payment', isAuthenticated, isAdmin, async (req, res) => {
+  let connection = null;
   try {
     const { payment_amount, payment_note } = req.body;
     const parsedAmount = parseFloat(payment_amount);
@@ -588,7 +603,7 @@ router.put('/soa/:id/payment', isAuthenticated, isAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Payment amount must be greater than zero' });
     }
 
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     const [soas] = await connection.query(
       'SELECT total_amount, amount_paid, trainee_id FROM statements_of_account WHERE id = ?',
       [req.params.id]
@@ -654,14 +669,22 @@ router.put('/soa/:id/payment', isAuthenticated, isAdmin, async (req, res) => {
 
     res.json({ success: true, message: 'Payment recorded successfully', amount_paid: newPaid, amount_remaining: remaining, status });
   } catch (error) {
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
     console.error('Error recording SOA payment:', error);
     res.status(500).json({ error: 'Failed to record payment' });
   }
 });
 
 router.get('/soa/:id/payments', isAuthenticated, isAdmin, async (req, res) => {
+  let connection = null;
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     const [payments] = await connection.query(
       `SELECT t.id, t.amount, t.description, t.payment_method, t.created_at,
         IFNULL(u.full_name, 'Admin') AS recorded_by
@@ -693,6 +716,13 @@ router.get('/soa/:id/payments', isAuthenticated, isAdmin, async (req, res) => {
     connection.release();
     res.json(payments);
   } catch (error) {
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
     console.error('Error fetching SOA payment history:', error);
     res.status(500).json({ error: 'Failed to load payment history' });
   }
@@ -838,7 +868,7 @@ router.get('/soa/:id/pdf', isAuthenticated, async (req, res) => {
 router.get('/requests', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { status, priority } = req.query;
-    let query = 'SELECT r.*, t.system_id, t.first_name, t.last_name, u.full_name as assigned_to_name FROM requests r JOIN trainees t ON r.trainee_id = t.id LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE 1=1';
+    let query = 'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, t.system_id, t.first_name, t.last_name, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r JOIN trainees t ON r.trainee_id = t.id LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE 1=1';
     const params = [];
 
     if (status) {
@@ -865,7 +895,7 @@ router.get('/requests', isAuthenticated, isAdmin, async (req, res) => {
 router.get('/requests/:id', isAuthenticated, async (req, res) => {
   try {
     const [requests] = await pool.query(
-      'SELECT r.*, t.system_id, t.first_name, t.last_name, u.full_name as assigned_to_name FROM requests r JOIN trainees t ON r.trainee_id = t.id LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = ?',
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, t.system_id, t.first_name, t.last_name, COALESCE(u.full_name, "Unassigned") as assigned_to_name FROM requests r JOIN trainees t ON r.trainee_id = t.id LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = ?',
       [req.params.id]
     );
 
@@ -874,12 +904,12 @@ router.get('/requests/:id', isAuthenticated, async (req, res) => {
     }
 
     const [attachments] = await pool.query(
-      'SELECT ra.*, au.full_name as uploaded_by_name FROM request_attachments ra LEFT JOIN admin_users au ON ra.uploaded_by = au.id WHERE ra.request_id = ? ORDER BY ra.uploaded_at DESC',
+      'SELECT ra.id, ra.request_id, ra.file_name, ra.file_path, ra.file_type, ra.file_size, ra.uploaded_by, ra.uploaded_at, au.full_name as uploaded_by_name FROM request_attachments ra LEFT JOIN admin_users au ON ra.uploaded_by = au.id WHERE ra.request_id = ? ORDER BY ra.uploaded_at DESC',
       [req.params.id]
     );
 
     const [comments] = await pool.query(
-      'SELECT rc.*, u.full_name as comment_by_name FROM request_comments rc LEFT JOIN admin_users u ON rc.comment_by = u.id WHERE rc.request_id = ? ORDER BY rc.created_at DESC',
+      'SELECT rc.id, rc.request_id, rc.comment_by, rc.comment_text, rc.is_visible_to_trainee, rc.created_at, u.full_name as comment_by_name FROM request_comments rc LEFT JOIN admin_users u ON rc.comment_by = u.id WHERE rc.request_id = ? ORDER BY rc.created_at DESC',
       [req.params.id]
     );
 
@@ -902,7 +932,7 @@ router.get('/requests/:id', isAuthenticated, async (req, res) => {
 router.get('/forgot-password-requests', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const [requests] = await pool.query(
-      'SELECT fpr.*, u.full_name as responded_by_name FROM forgot_password_requests fpr LEFT JOIN admin_users u ON fpr.responded_by = u.id ORDER BY fpr.created_at DESC LIMIT 200'
+      'SELECT fpr.id, fpr.request_number, fpr.user_type, fpr.identifier, fpr.email, fpr.message, fpr.id_file_name, fpr.id_file_path, fpr.status, fpr.response_message, fpr.responded_by, fpr.created_at, fpr.updated_at, COALESCE(u.full_name, "Not Responded") as responded_by_name FROM forgot_password_requests fpr LEFT JOIN admin_users u ON fpr.responded_by = u.id ORDER BY fpr.created_at DESC LIMIT 200'
     );
     res.json(requests);
   } catch (error) {
@@ -914,7 +944,7 @@ router.get('/forgot-password-requests', isAuthenticated, isAdmin, async (req, re
 router.get('/forgot-password-requests/:id', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const [requests] = await pool.query(
-      'SELECT fpr.*, u.full_name as responded_by_name FROM forgot_password_requests fpr LEFT JOIN admin_users u ON fpr.responded_by = u.id WHERE fpr.id = ?',
+      'SELECT fpr.id, fpr.request_number, fpr.user_type, fpr.identifier, fpr.email, fpr.message, fpr.id_file_name, fpr.id_file_path, fpr.status, fpr.response_message, fpr.responded_by, fpr.created_at, fpr.updated_at, COALESCE(u.full_name, "Not Responded") as responded_by_name FROM forgot_password_requests fpr LEFT JOIN admin_users u ON fpr.responded_by = u.id WHERE fpr.id = ?',
       [req.params.id]
     );
     if (requests.length === 0) {
@@ -1115,6 +1145,13 @@ router.put('/chpay/:id', isAuthenticated, isAdmin, async (req, res) => {
     connection.release();
     res.json({ success: true, message: 'Status updated' });
   } catch (error) {
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
     console.error('Error updating CHPay status:', error);
     res.status(500).json({ error: 'Failed to update status' });
   }
@@ -1122,8 +1159,9 @@ router.put('/chpay/:id', isAuthenticated, isAdmin, async (req, res) => {
 
 // Reject CHPay payment - Delete record and notify trainee
 router.post('/chpay/:id/reject', isAuthenticated, isAdmin, async (req, res) => {
+  let connection = null;
   try {
-    const connection = await pool.getConnection();
+    connection = await pool.getConnection();
     
     // Get the payment details before deleting
     const [payments] = await connection.query('SELECT * FROM online_payments WHERE id = ?', [req.params.id]);
@@ -1163,6 +1201,13 @@ router.post('/chpay/:id/reject', isAuthenticated, isAdmin, async (req, res) => {
     
     res.json({ success: true, message: 'Payment rejected and trainee notified' });
   } catch (error) {
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
     console.error('Error rejecting CHPay payment:', error);
     res.status(500).json({ error: 'Failed to reject payment: ' + error.message });
   }
@@ -1438,7 +1483,7 @@ router.get('/payment-report', isAuthenticated, isAdmin, async (req, res) => {
 router.get('/announcements', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const [announcements] = await pool.query(
-      'SELECT a.*, au.full_name as created_by_name FROM announcements a LEFT JOIN admin_users au ON a.created_by = au.id ORDER BY a.created_at DESC'
+      'SELECT a.id, a.title, a.content, a.created_by, a.is_active, a.target_audience, a.target_course, a.target_schedule, a.priority, a.created_at, a.updated_at, au.full_name as created_by_name FROM announcements a LEFT JOIN admin_users au ON a.created_by = au.id ORDER BY a.created_at DESC'
     );
     res.json(announcements);
   } catch (error) {
