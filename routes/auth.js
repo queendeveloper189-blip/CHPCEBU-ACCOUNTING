@@ -68,110 +68,136 @@ router.post('/login', async (req, res) => {
     }
 
     if (userType === 'admin') {
-      const connection = await pool.getConnection();
-      const [users] = await connection.query(
-        'SELECT id, username, password_hash, full_name, role, status FROM admin_users WHERE username = ?',
-        [username]
-      );
-      connection.release();
-
-      if (users.length === 0) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+      let connection;
+      try {
+        connection = await pool.getConnection();
+      } catch (dbErr) {
+        console.error('❌ Failed to get database connection:', dbErr.message);
+        return res.status(503).json({ error: 'Database connection failed. Please try again.' });
       }
 
-      const user = users[0];
+      try {
+        const [users] = await connection.query(
+          'SELECT id, username, password_hash, full_name, role, status FROM admin_users WHERE username = ?',
+          [username]
+        );
+        connection.release();
 
-      if (user.status === 'inactive') {
-        return res.status(401).json({ error: 'Account is inactive' });
-      }
-
-      const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-      if (!passwordMatch) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      // Update last login
-      await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = ?', [user.id]);
-
-      // Set session
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.userType = 'admin';
-      req.session.fullName = user.full_name;
-      req.session.role = user.role;
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          username: user.username,
-          fullName: user.full_name,
-          role: user.role,
-          userType: 'admin'
+        if (users.length === 0) {
+          return res.status(401).json({ error: 'Invalid credentials' });
         }
-      });
+
+        const user = users[0];
+
+        if (user.status === 'inactive') {
+          return res.status(401).json({ error: 'Account is inactive' });
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!passwordMatch) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Update last login
+        await pool.query('UPDATE admin_users SET last_login = NOW() WHERE id = ?', [user.id]);
+
+        // Set session
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.userType = 'admin';
+        req.session.fullName = user.full_name;
+        req.session.role = user.role;
+
+        res.json({
+          success: true,
+          message: 'Login successful',
+          user: {
+            id: user.id,
+            username: user.username,
+            fullName: user.full_name,
+            role: user.role,
+            userType: 'admin'
+          }
+        });
+      } catch (queryErr) {
+        connection.release();
+        console.error('❌ Admin login query error:', queryErr.message);
+        return res.status(500).json({ error: 'Database query failed' });
+      }
 
     } else if (userType === 'trainee') {
       // Trainee login using system_id
-      const connection = await pool.getConnection();
-      const [trainees] = await connection.query(
-        'SELECT id, system_id, first_name, last_name, status, password_hash FROM trainees WHERE system_id = ?',
-        [username]
-      );
-      connection.release();
-
-      if (trainees.length === 0) {
-        return res.status(401).json({ error: 'Invalid trainee ID' });
+      let connection;
+      try {
+        connection = await pool.getConnection();
+      } catch (dbErr) {
+        console.error('❌ Failed to get database connection:', dbErr.message);
+        return res.status(503).json({ error: 'Database connection failed. Please try again.' });
       }
 
-      const trainee = trainees[0];
-      console.log(`[Login] Trainee ${username} found, has password_hash: ${!!trainee.password_hash}`);
+      try {
+        const [trainees] = await connection.query(
+          'SELECT id, system_id, first_name, last_name, status, password_hash FROM trainees WHERE system_id = ?',
+          [username]
+        );
+        connection.release();
 
-      if (trainee.status === 'inactive') {
-        return res.status(401).json({ error: 'Trainee account is inactive' });
-      }
-
-      let passwordMatch = false;
-      if (trainee.password_hash) {
-        console.log(`[Login] Checking password against hash for ${username}`);
-        passwordMatch = await bcrypt.compare(password, trainee.password_hash);
-        console.log(`[Login] Password comparison result: ${passwordMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
-      } else {
-        passwordMatch = password === trainee.system_id;
-        console.log(`[Login] No hash found, comparing with system_id: ${passwordMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
-      }
-
-      if (!passwordMatch) {
-        console.log(`[Login] ❌ Login failed for ${username}: Invalid credentials`);
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-
-      req.session.userId = trainee.id;
-      req.session.systemId = trainee.system_id;
-      req.session.userType = 'trainee';
-      req.session.userFullName = `${trainee.first_name} ${trainee.last_name}`;
-
-      console.log(`[Login] ✅ Login successful for ${username}`);
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: trainee.id,
-          systemId: trainee.system_id,
-          fullName: `${trainee.first_name} ${trainee.last_name}`,
-          userType: 'trainee'
+        if (trainees.length === 0) {
+          return res.status(401).json({ error: 'Invalid trainee ID' });
         }
-      });
+
+        const trainee = trainees[0];
+        console.log(`[Login] Trainee ${username} found, has password_hash: ${!!trainee.password_hash}`);
+
+        if (trainee.status === 'inactive') {
+          return res.status(401).json({ error: 'Trainee account is inactive' });
+        }
+
+        let passwordMatch = false;
+        if (trainee.password_hash) {
+          console.log(`[Login] Checking password against hash for ${username}`);
+          passwordMatch = await bcrypt.compare(password, trainee.password_hash);
+          console.log(`[Login] Password comparison result: ${passwordMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+        } else {
+          passwordMatch = password === trainee.system_id;
+          console.log(`[Login] No hash found, comparing with system_id: ${passwordMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+        }
+
+        if (!passwordMatch) {
+          console.log(`[Login] ❌ Login failed for ${username}: Invalid credentials`);
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        req.session.userId = trainee.id;
+        req.session.systemId = trainee.system_id;
+        req.session.userType = 'trainee';
+        req.session.userFullName = `${trainee.first_name} ${trainee.last_name}`;
+
+        console.log(`[Login] ✅ Login successful for ${username}`);
+
+        res.json({
+          success: true,
+          message: 'Login successful',
+          user: {
+            id: trainee.id,
+            systemId: trainee.system_id,
+            fullName: `${trainee.first_name} ${trainee.last_name}`,
+            userType: 'trainee'
+          }
+        });
+      } catch (queryErr) {
+        connection.release();
+        console.error('❌ Trainee login query error:', queryErr.message);
+        return res.status(500).json({ error: 'Database query failed' });
+      }
     } else {
       res.status(400).json({ error: 'Invalid user type' });
     }
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    console.error('❌ Login error:', error);
+    res.status(500).json({ error: 'Login failed: ' + error.message });
   }
 });
 

@@ -8,6 +8,7 @@ require('dotenv').config();
 
 const app = express();
 const pool = require('./config/database');
+const initializeDatabase = require('./config/initDb');
 
 // Middleware
 app.use(cors({
@@ -111,8 +112,13 @@ if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   const HOST = process.env.HOST || 'localhost';
 
-  app.listen(PORT, HOST, () => {
-    console.log(`
+  // Initialize database before starting server
+  (async () => {
+    console.log('Initializing database...');
+    await initializeDatabase();
+    
+    app.listen(PORT, HOST, () => {
+      console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║  Trainees Accounting System Server                              ║
 ║  Running on: http://${HOST}:${PORT}                             ║
@@ -120,7 +126,8 @@ if (require.main === module) {
 ║  Database: ${process.env.DB_NAME || 'trainees_accounting_system'}    ║
 ╚════════════════════════════════════════════════════════════════╝
   `);
-  });
+    });
+  })();
 }
 
 module.exports = app;
