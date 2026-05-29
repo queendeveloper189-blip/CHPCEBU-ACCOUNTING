@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../config/database');
+const pool = require('../config/database-pg');
 
 // Create upload directory for ID files
 const uploadDir = './uploads/password-reset-ids';

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/database');
+const pool = require('../config/database-pg');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
