@@ -3,20 +3,26 @@ require('dotenv').config();
 
 /**
  * Initialize database and create all required tables
+ * This is non-blocking - failures don't prevent the server from running
  */
 async function initializeDatabase() {
   let connection = null;
   try {
     console.log('🔄 Initializing database...');
     
-    // Connect without selecting database first
-    connection = await mysql.createConnection({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      port: process.env.DB_PORT || 3306,
-      connectionTimeout: 10000
-    });
+    // Try to connect with timeout
+    connection = await Promise.race([
+      mysql.createConnection({
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        port: process.env.DB_PORT || 3306,
+        connectionTimeout: 30000
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timeout')), 35000)
+      )
+    ]);
 
     console.log('✓ Connected to MySQL server');
 
@@ -26,16 +32,18 @@ async function initializeDatabase() {
       await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
       console.log(`✓ Database \`${dbName}\` ready`);
     } catch (dbErr) {
-      console.error('Error creating database:', dbErr.message);
-      throw dbErr;
+      console.error('Warning: Error creating database:', dbErr.message);
+      // Continue anyway - might already exist
     }
 
     // Select the database
     try {
       await connection.query(`USE \`${dbName}\``);
     } catch (useErr) {
-      console.error('Error selecting database:', useErr.message);
-      throw useErr;
+      console.error('Warning: Error selecting database:', useErr.message);
+      // This is critical, but we'll let the server run anyway
+      await connection.end();
+      return false;
     }
 
     // Read and execute schema
@@ -55,6 +63,8 @@ async function initializeDatabase() {
       console.log(`Found ${statements.length} SQL statements to execute`);
 
       let executed = 0;
+      let skipped = 0;
+      
       for (const statement of statements) {
         try {
           await connection.query(statement);
@@ -62,15 +72,16 @@ async function initializeDatabase() {
         } catch (err) {
           // Skip duplicate table/database errors
           if (err.message.includes('already exists')) {
-            executed++;
+            skipped++;
           } else if (err.message.includes('Syntax error')) {
             console.warn(`⚠ Syntax error in statement: ${statement.substring(0, 50)}...`);
           } else {
-            console.error('Error executing statement:', statement.substring(0, 50), err.message);
+            // Log but continue
+            console.warn(`⚠ Statement error: ${err.message.substring(0, 100)}`);
           }
         }
       }
-      console.log(`✓ Database schema initialized (${executed}/${statements.length} statements)`);
+      console.log(`✓ Database schema initialized (${executed} new, ${skipped} existing)\n`);
     } else {
       console.warn(`⚠ Schema file not found at ${schemaPath}`);
     }
@@ -79,7 +90,7 @@ async function initializeDatabase() {
     console.log('✓ Database initialization complete\n');
     return true;
   } catch (error) {
-    console.error('✗ Database initialization failed:', error.message);
+    console.warn('⚠ Database initialization skipped (will retry on connection):', error.message);
     if (connection) {
       try {
         await connection.end();

@@ -19,15 +19,15 @@ const pool = mysql.createPool({
   waitForConnections: true,
   queueLimit: 0,
   enableTimeouts: true,
-  connectionTimeout: 10000,
+  connectionTimeout: 60000, // 60 seconds timeout
   authPlugins: {
     mysql_native_password: () => () => process.env.DB_PASSWORD || ''
   }
 });
 
-// Test connection with retry logic
+// Test connection with exponential backoff
 let retries = 0;
-const maxRetries = 10;
+const maxRetries = 60; // Try for 5+ minutes
 
 function testConnection() {
   pool.getConnection()
@@ -37,16 +37,18 @@ function testConnection() {
     })
     .catch((err) => {
       retries++;
+      const waitTime = Math.min(5000 + (retries * 500), 10000); // Exponential backoff, max 10s
+      
       console.error(`✗ Database connection failed (attempt ${retries}/${maxRetries}):`);
       console.error(`  Error: ${err.message || err.code || 'Unknown error'}`);
       console.error(`  Code: ${err.code}`);
       console.error(`  Errno: ${err.errno}`);
       console.error(`  SQL State: ${err.sqlState}`);
+      console.error(`  Waiting ${waitTime}ms before retry...`);
       
-      // Retry after 3 seconds
+      // Retry with exponential backoff
       if (retries < maxRetries) {
-        console.log(`Retrying in 3 seconds...`);
-        setTimeout(testConnection, 3000);
+        setTimeout(testConnection, waitTime);
       } else {
         console.error('✗ Failed to connect to database after maximum retries');
         // Don't exit - allow server to run and retry in background
