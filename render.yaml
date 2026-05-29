@@ -35,3 +35,5 @@ databases:
   - name: trainees_db
     plan: free
     mysqlVersion: 8
+    initialSqlGrants: 
+      username: trainees_user
