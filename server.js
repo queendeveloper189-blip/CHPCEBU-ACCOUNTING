@@ -6,6 +6,9 @@ const bodyParser = require('body-parser');
 const path = require('path');
 require('dotenv').config();
 
+// Load diagnostics first to see environment
+require('./config/db-diagnostics');
+
 const app = express();
 const pool = require('./config/database');
 const initializeDatabase = require('./config/initDb');
@@ -71,11 +74,33 @@ app.set('view engine', 'html');
 app.set('views', path.join(__dirname, 'views'));
 
 // Health check endpoint (doesn't require database)
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  let dbError = null;
+  
+  // Try to check database connection
+  try {
+    const connection = await Promise.race([
+      pool.getConnection(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 5000)
+      )
+    ]);
+    dbStatus = 'connected';
+    connection.release();
+  } catch (err) {
+    dbStatus = 'failed';
+    dbError = err.message;
+  }
+  
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: {
+      status: dbStatus,
+      error: dbError
+    }
   });
 });
 
