@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg');
 require('dotenv').config();
 
 /**
@@ -6,62 +6,33 @@ require('dotenv').config();
  * This is non-blocking - failures don't prevent the server from running
  */
 async function initializeDatabase() {
-  let connection = null;
+  let client = null;
   try {
     console.log('🔄 Initializing database...');
     
-    // Parse database config
-    let dbConfig = {};
-    if (process.env.DATABASE_URL) {
-      const url = new URL(process.env.DATABASE_URL);
-      dbConfig = {
-        host: url.hostname,
-        user: url.username,
-        password: url.password,
-        database: url.pathname.substring(1),
-        port: url.port || 3306
-      };
-    } else {
-      dbConfig = {
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || '',
-        port: process.env.DB_PORT || 3306
-      };
-    }
+    // Use the existing pool or create a new client
+    const connectionString = process.env.DATABASE_URL;
     
+    if (!connectionString) {
+      console.warn('⚠ DATABASE_URL not set, skipping schema initialization');
+      return false;
+    }
+
     // Try to connect with timeout
-    connection = await Promise.race([
-      mysql.createConnection({
-        ...dbConfig,
-        connectionTimeout: 30000
-      }),
+    const pool = new Pool({
+      connectionString: connectionString,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      statement_timeout: 30000
+    });
+
+    client = await Promise.race([
+      pool.connect(),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Connection timeout')), 35000)
       )
     ]);
 
-    console.log('✓ Connected to MySQL server');
-
-    // Create database if it doesn't exist
-    const dbName = dbConfig.database || process.env.DB_NAME || 'trainees_accounting_system';
-    try {
-      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
-      console.log(`✓ Database \`${dbName}\` ready`);
-    } catch (dbErr) {
-      console.error('Warning: Error creating database:', dbErr.message);
-      // Continue anyway - might already exist
-    }
-
-    // Select the database
-    try {
-      await connection.query(`USE \`${dbName}\``);
-    } catch (useErr) {
-      console.error('Warning: Error selecting database:', useErr.message);
-      // This is critical, but we'll let the server run anyway
-      await connection.end();
-      return false;
-    }
+    console.log('✓ Connected to PostgreSQL server');
 
     // Read and execute schema
     const fs = require('fs');
@@ -84,11 +55,11 @@ async function initializeDatabase() {
       
       for (const statement of statements) {
         try {
-          await connection.query(statement);
+          await client.query(statement);
           executed++;
         } catch (err) {
           // Skip duplicate table/database errors
-          if (err.message.includes('already exists')) {
+          if (err.message.includes('already exists') || err.code === '42P07' || err.code === '42701') {
             skipped++;
           } else if (err.message.includes('Syntax error')) {
             console.warn(`⚠ Syntax error in statement: ${statement.substring(0, 50)}...`);
@@ -103,14 +74,15 @@ async function initializeDatabase() {
       console.warn(`⚠ Schema file not found at ${schemaPath}`);
     }
 
-    await connection.end();
+    client.release();
+    await pool.end();
     console.log('✓ Database initialization complete\n');
     return true;
   } catch (error) {
     console.warn('⚠ Database initialization skipped (will retry on connection):', error.message);
-    if (connection) {
+    if (client) {
       try {
-        await connection.end();
+        client.release();
       } catch (e) {}
     }
     return false;
