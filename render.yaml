@@ -20,12 +20,12 @@ services:
         fromDatabase:
           name: trainees_db
           property: password
-      - key: DB_NAME
-        value: trainees_accounting_system
       - key: DB_PORT
         fromDatabase:
           name: trainees_db
           property: port
+      - key: DB_NAME
+        value: trainees_accounting_system
       - key: SESSION_SECRET
         generateValue: true
       - key: PORT

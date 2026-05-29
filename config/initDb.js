@@ -10,13 +10,30 @@ async function initializeDatabase() {
   try {
     console.log('🔄 Initializing database...');
     
-    // Try to connect with timeout
-    connection = await Promise.race([
-      mysql.createConnection({
+    // Parse database config
+    let dbConfig = {};
+    if (process.env.DATABASE_URL) {
+      const url = new URL(process.env.DATABASE_URL);
+      dbConfig = {
+        host: url.hostname,
+        user: url.username,
+        password: url.password,
+        database: url.pathname.substring(1),
+        port: url.port || 3306
+      };
+    } else {
+      dbConfig = {
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
-        port: process.env.DB_PORT || 3306,
+        port: process.env.DB_PORT || 3306
+      };
+    }
+    
+    // Try to connect with timeout
+    connection = await Promise.race([
+      mysql.createConnection({
+        ...dbConfig,
         connectionTimeout: 30000
       }),
       new Promise((_, reject) =>
@@ -27,7 +44,7 @@ async function initializeDatabase() {
     console.log('✓ Connected to MySQL server');
 
     // Create database if it doesn't exist
-    const dbName = process.env.DB_NAME || 'trainees_accounting_system';
+    const dbName = dbConfig.database || process.env.DB_NAME || 'trainees_accounting_system';
     try {
       await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
       console.log(`✓ Database \`${dbName}\` ready`);
