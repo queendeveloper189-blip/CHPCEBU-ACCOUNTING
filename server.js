@@ -70,6 +70,15 @@ app.use(session({
 app.set('view engine', 'html');
 app.set('views', path.join(__dirname, 'views'));
 
+// Health check endpoint (doesn't require database)
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // API Routes
 const adminRoutes = require('./routes/admin');
 const traineeRoutes = require('./routes/trainee');
