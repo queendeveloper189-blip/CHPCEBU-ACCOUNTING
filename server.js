@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const MySQLStore = require('express-mysql-session')(session);
+const pgSession = require('connect-pg-simple')(session);
 const bodyParser = require('body-parser');
 const path = require('path');
 require('dotenv').config();
@@ -10,7 +10,7 @@ require('dotenv').config();
 require('./config/db-diagnostics');
 
 const app = express();
-const pool = require('./config/database');
+const pool = require('./config/database-pg'); // Use PostgreSQL pool
 const initializeDatabase = require('./config/initDb');
 
 // Middleware
@@ -42,25 +42,16 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Session Configuration
-const sessionStore = process.env.NODE_ENV === 'production' 
-  ? new MySQLStore({
-      host: process.env.DB_HOST || 'localhost',
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'trainees_accounting_system',
-      port: process.env.DB_PORT || 3306,
-      clearExpired: true,
-      expiration: 24 * 60 * 60 * 1000, // 24 hours
-      createDatabaseTable: true
-    })
-  : undefined; // Use default MemoryStore for development
-
+// Session Configuration - PostgreSQL Store
 app.use(session({
+  store: new pgSession({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || 'default_secret',
   resave: false,
   saveUninitialized: false,
-  store: sessionStore,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
