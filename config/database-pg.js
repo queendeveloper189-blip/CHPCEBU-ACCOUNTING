@@ -6,20 +6,18 @@ let pgConfig = {};
 
 if (process.env.DATABASE_URL) {
   // Use Render's DATABASE_URL (format: postgresql://user:password@host:port/database)
-  pgConfig = {
+  pgConfig = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 10, // Maximum pool size (Render limits connections)
-    min: 2,  // Minimum pool size
+    max: 10,
+    min: 2,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-    statement_timeout: 30000, // 30 second statement timeout
-    query_timeout: 30000
-  };
+    connectionTimeoutMillis: 10000
+  });
   console.log('✓ Using DATABASE_URL (Render format)');
 } else {
   // Use individual environment variables
-  pgConfig = {
+  pgConfig = new Pool({
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     user: process.env.DB_USER || 'admin',
@@ -29,10 +27,8 @@ if (process.env.DATABASE_URL) {
     max: 10,
     min: 2,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-    statement_timeout: 30000,
-    query_timeout: 30000
-  };
+    connectionTimeoutMillis: 10000
+  });
   console.log('✓ Using individual database environment variables');
 }
 
@@ -40,14 +36,14 @@ console.log('PostgreSQL Configuration:');
 if (process.env.DATABASE_URL) {
   console.log(`  Connection String: ${process.env.DATABASE_URL.substring(0, 30)}...`);
 } else {
-  console.log(`  Host: ${pgConfig.host}`);
-  console.log(`  Port: ${pgConfig.port}`);
-  console.log(`  User: ${pgConfig.user}`);
-  console.log(`  Database: ${pgConfig.database}`);
-  console.log(`  Password provided: ${!!pgConfig.password}`);
+  console.log(`  Host: ${process.env.DB_HOST || 'localhost'}`);
+  console.log(`  Port: ${process.env.DB_PORT || 5432}`);
+  console.log(`  User: ${process.env.DB_USER || 'admin'}`);
+  console.log(`  Database: ${process.env.DB_NAME || 'trainees_accounting_system'}`);
+  console.log(`  Password provided: ${!!process.env.DB_PASSWORD}`);
 }
 
-const pool = new Pool(pgConfig);
+const pool = pgConfig;
 
 // Test connection with retry logic
 let retries = 0;

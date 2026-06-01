@@ -72,14 +72,13 @@ app.get('/api/health', async (req, res) => {
   
   // Try to check database connection
   try {
-    const connection = await Promise.race([
-      pool.getConnection(),
+    const result = await Promise.race([
+      pool.query('SELECT NOW()'),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Connection timeout')), 5000)
       )
     ]);
     dbStatus = 'connected';
-    connection.release();
   } catch (err) {
     dbStatus = 'failed';
     dbError = err.message;
