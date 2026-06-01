@@ -12,26 +12,54 @@ class TraineeDashboard {
   }
 
   async checkAuth() {
-    try {
-      const response = await fetch('/api/auth/session', { credentials: 'include' });
-      if (!response.ok) {
-        window.location.href = '/';
-        return;
+    const maxRetries = 3;
+    const retryDelay = 500; // ms
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+        
+        const response = await fetch('/api/auth/session', { 
+          credentials: 'include',
+          signal: controller.signal 
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          // If 401 Unauthorized, user is not logged in
+          if (response.status === 401) {
+            window.location.href = '/';
+            return;
+          }
+          // For other errors, retry if not the last attempt
+          if (attempt === maxRetries) {
+            console.error('Auth check failed after retries:', response.status);
+            window.location.href = '/';
+            return;
+          }
+        } else {
+          const data = await response.json();
+          if (data.userType !== 'trainee') {
+            window.location.href = '/';
+            return;
+          }
+          this.traineeId = data.userId;
+          document.getElementById('user-name').textContent = data.fullName;
+          document.getElementById('user-id').textContent = `ID: ${data.systemId}`;
+          return; // Success
+        }
+      } catch (error) {
+        // Network error or timeout - retry
+        if (attempt === maxRetries) {
+          console.error('Auth check failed after retries:', error);
+          window.location.href = '/';
+          return;
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
-
-      const data = await response.json();
-      if (data.userType !== 'trainee') {
-        window.location.href = '/';
-        return;
-      }
-
-      this.traineeId = data.userId;
-      document.getElementById('user-name').textContent = data.fullName;
-      document.getElementById('user-id').textContent = `ID: ${data.systemId}`;
-
-    } catch (error) {
-      console.error('Auth error:', error);
-      window.location.href = '/';
     }
   }
 

@@ -20,19 +20,52 @@ class AdminDashboard {
   }
 
   async checkAuth() {
-    try {
-      const response = await fetch('/api/auth/session', { credentials: 'include' });
-      if (!response.ok) {
-        window.location.href = '/';
-      } else {
-        const data = await response.json();
-        if (data.userType !== 'admin') {
-          window.location.href = '/';
+    const maxRetries = 3;
+    const retryDelay = 500; // ms
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+        
+        const response = await fetch('/api/auth/session', { 
+          credentials: 'include',
+          signal: controller.signal 
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          // If 401 Unauthorized, user is not logged in
+          if (response.status === 401) {
+            window.location.href = '/';
+            return;
+          }
+          // For other errors, retry if not the last attempt
+          if (attempt === maxRetries) {
+            console.error('Auth check failed after retries:', response.status);
+            window.location.href = '/';
+            return;
+          }
+        } else {
+          const data = await response.json();
+          if (data.userType !== 'admin') {
+            window.location.href = '/';
+            return;
+          }
+          document.getElementById('user-name').textContent = data.fullName;
+          return; // Success
         }
-        document.getElementById('user-name').textContent = data.fullName;
+      } catch (error) {
+        // Network error or timeout - retry
+        if (attempt === maxRetries) {
+          console.error('Auth check failed after retries:', error);
+          window.location.href = '/';
+          return;
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
-    } catch (error) {
-      window.location.href = '/';
     }
   }
 
