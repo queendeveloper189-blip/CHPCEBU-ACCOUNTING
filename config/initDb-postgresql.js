@@ -342,7 +342,17 @@ async function initializeDatabase() {
 
       `CREATE INDEX IF NOT EXISTS idx_notifications_trainee_id ON notifications(trainee_id)`,
       `CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status)`,
-      `CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)`
+      `CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)`,
+
+      // Session Table (for express-session with connect-pg-simple)
+      `CREATE TABLE IF NOT EXISTS "session" (
+        "sid" VARCHAR NOT NULL COLLATE "C",
+        "sess" JSON NOT NULL,
+        "expire" TIMESTAMP(6) NOT NULL,
+        PRIMARY KEY ("sid")
+      )`,
+
+      `CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`
     ];
 
     console.log(`Creating ${tables.length} tables and indexes...`);
