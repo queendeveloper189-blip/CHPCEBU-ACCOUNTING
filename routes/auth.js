@@ -100,16 +100,23 @@ router.post('/login', async (req, res) => {
         req.session.fullName = user.full_name;
         req.session.role = user.role;
 
-        res.json({
-          success: true,
-          message: 'Login successful',
-          user: {
-            id: user.id,
-            username: user.username,
-            fullName: user.full_name,
-            role: user.role,
-            userType: 'admin'
+        // Save session to database before responding
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).json({ error: 'Session save failed' });
           }
+          res.json({
+            success: true,
+            message: 'Login successful',
+            user: {
+              id: user.id,
+              username: user.username,
+              fullName: user.full_name,
+              role: user.role,
+              userType: 'admin'
+            }
+          });
         });
       } catch (queryErr) {
         console.error('❌ Admin login query error:', queryErr.message);
@@ -157,15 +164,22 @@ router.post('/login', async (req, res) => {
 
         console.log(`[Login] ✅ Login successful for ${username}`);
 
-        res.json({
-          success: true,
-          message: 'Login successful',
-          user: {
-            id: trainee.id,
-            systemId: trainee.system_id,
-            fullName: `${trainee.first_name} ${trainee.last_name}`,
-            userType: 'trainee'
+        // Save session to database before responding
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.status(500).json({ error: 'Session save failed' });
           }
+          res.json({
+            success: true,
+            message: 'Login successful',
+            user: {
+              id: trainee.id,
+              systemId: trainee.system_id,
+              fullName: `${trainee.first_name} ${trainee.last_name}`,
+              userType: 'trainee'
+            }
+          });
         });
       } catch (queryErr) {
         console.error('❌ Trainee login query error:', queryErr.message);

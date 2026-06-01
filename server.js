@@ -47,11 +47,12 @@ app.use(session({
   store: new pgSession({
     pool: pool,
     tableName: 'session',
-    createTableIfMissing: true
+    createTableIfMissing: true,
+    ttl: 24 * 60 * 60 // 24 hours
   }),
   secret: process.env.SESSION_SECRET || 'default_secret',
-  resave: false,
-  saveUninitialized: false,
+  resave: true,
+  saveUninitialized: true,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
