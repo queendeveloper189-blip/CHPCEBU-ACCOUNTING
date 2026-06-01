@@ -12,13 +12,17 @@ class TraineeDashboard {
   }
 
   async checkAuth() {
-    const maxRetries = 3;
-    const retryDelay = 500; // ms
+    const maxRetries = 5; // Increased retries
+    const retryDelay = 1000; // 1 second delay between retries
+    
+    let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        console.log(`[Auth Check] Attempt ${attempt}/${maxRetries}`);
+        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
         const response = await fetch('/api/auth/session', { 
           credentials: 'include',
@@ -30,36 +34,50 @@ class TraineeDashboard {
         if (!response.ok) {
           // If 401 Unauthorized, user is not logged in
           if (response.status === 401) {
+            console.warn('[Auth Check] User not authenticated (401)');
             window.location.href = '/';
             return;
           }
           // For other errors, retry if not the last attempt
+          lastError = `HTTP ${response.status}: ${response.statusText}`;
+          console.warn(`[Auth Check] Server error (${response.status}), will retry...`);
+          
           if (attempt === maxRetries) {
-            console.error('Auth check failed after retries:', response.status);
-            window.location.href = '/';
+            console.error('[Auth Check] Failed after all retries:', lastError);
+            // Don't redirect immediately - show error but keep user on page
+            console.warn('[Auth Check] Keeping user on page despite errors. May have limited functionality.');
             return;
           }
         } else {
           const data = await response.json();
           if (data.userType !== 'trainee') {
+            console.warn('[Auth Check] Wrong user type:', data.userType);
             window.location.href = '/';
             return;
           }
+          console.log('[Auth Check] ✓ Authentication verified');
           this.traineeId = data.userId;
           document.getElementById('user-name').textContent = data.fullName;
           document.getElementById('user-id').textContent = `ID: ${data.systemId}`;
           return; // Success
         }
       } catch (error) {
+        lastError = error.message;
+        console.warn(`[Auth Check] Network error: ${error.message}`);
+        
         // Network error or timeout - retry
         if (attempt === maxRetries) {
-          console.error('Auth check failed after retries:', error);
-          window.location.href = '/';
+          console.error('[Auth Check] Failed after all retries:', lastError);
+          // Don't redirect immediately - show error but keep user on page
+          console.warn('[Auth Check] Keeping user on page despite errors. May have limited functionality.');
           return;
         }
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
+      
+      // Wait before retrying (with exponential backoff)
+      const delay = retryDelay * Math.min(attempt, 3); // Max 3 second backoff
+      console.log(`[Auth Check] Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 

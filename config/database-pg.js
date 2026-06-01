@@ -8,7 +8,13 @@ if (process.env.DATABASE_URL) {
   // Use Render's DATABASE_URL (format: postgresql://user:password@host:port/database)
   pgConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 10, // Maximum pool size (Render limits connections)
+    min: 2,  // Minimum pool size
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: 30000, // 30 second statement timeout
+    query_timeout: 30000
   };
   console.log('✓ Using DATABASE_URL (Render format)');
 } else {
@@ -19,7 +25,13 @@ if (process.env.DATABASE_URL) {
     user: process.env.DB_USER || 'admin',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'trainees_accounting_system',
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    min: 2,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: 30000,
+    query_timeout: 30000
   };
   console.log('✓ Using individual database environment variables');
 }
