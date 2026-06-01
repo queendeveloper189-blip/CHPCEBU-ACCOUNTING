@@ -11,7 +11,7 @@ require('./config/db-diagnostics');
 
 const app = express();
 const pool = require('./config/database-pg'); // Use PostgreSQL pool
-const initializeDatabase = require('./config/initDb');
+const initializeDatabase = require('./config/initDb-postgresql');
 
 // Middleware
 app.use(cors({

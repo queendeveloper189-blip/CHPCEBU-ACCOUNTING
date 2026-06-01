@@ -208,37 +208,35 @@ router.post('/forgot-password-request', uploadIdFile, async (req, res) => {
 
     // For trainees, check if trainee exists
     if (userType === 'trainee') {
-      const connection = await pool.getConnection();
       const result = await pool.query(
         'SELECT id FROM trainees WHERE system_id = $1',
         [identifier]
       );
 
-      if (result.rowup uploaded files
+      if (result.rows.length === 0) {
         if (req.files && req.files.length > 0) {
           req.files.forEach(file => {
             try { fs.unlinkSync(file.path); } catch (e) {}
           });
         }
-        return res.status(404).json({ error: 'Trainee is not exist' });
+        return res.status(404).json({ error: 'Trainee does not exist' });
       }
     }
 
     // For admins, check if admin exists
     if (userType === 'admin') {
-      const connection = await pool.getConnection();
-      const [admins] = await connection.query(
-        'SELECT id FROM admin_users WHERE username = ?',
-        [ideresult = await pool.query(
+      const result = await pool.query(
         'SELECT id FROM admin_users WHERE username = $1',
         [identifier]
       );
 
-      if (result.rowiles.forEach(file => {
+      if (result.rows.length === 0) {
+        if (req.files && req.files.length > 0) {
+          req.files.forEach(file => {
             try { fs.unlinkSync(file.path); } catch (e) {}
           });
         }
-        return res.status(404).json({ error: 'Admin user is not exist' });
+        return res.status(404).json({ error: 'Admin user does not exist' });
       }
     }
 
@@ -274,16 +272,14 @@ router.post('/forgot-password-request', uploadIdFile, async (req, res) => {
     }
 
     await pool.query(
-      'INSERT INTO forgot_password_requests (request_number, user_type, identifier, email, message, id_file_name, id_file_path, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO forgot_password_requests (request_number, user_type, identifier, email, message, id_file_name, id_file_path, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
       [request_number, userType, identifier, email || null, requestMessage, idFileName, idFilePath, 'pending']
-    );$1, $2, $3, $4, $5, $6, $7, $8
+    );
 
     // Create notification for trainee password change request
     if (userType === 'trainee') {
       try {
-        const connection = await pool.getConnection();
-        const [trainees] = await connection.query(
-          'SELresult = await pool.query(
+        const result = await pool.query(
           'SELECT id FROM trainees WHERE system_id = $1',
           [identifier]
         );
@@ -292,7 +288,9 @@ router.post('/forgot-password-request', uploadIdFile, async (req, res) => {
           await pool.query(
             `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
             [
-              result.rowassword change request (${request_number}) has been submitted successfully. An administrator will review your request and notify you of the status.`,
+              result.rows[0].id,
+              'Password Change Request Submitted',
+              `Your password change request (${request_number}) has been submitted successfully. An administrator will review your request and notify you of the status.`,
               'system',
               'unread'
             ]
@@ -352,9 +350,7 @@ router.post('/change-password', isAuthenticated, isAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const connection = await pool.getConnection();
-    const [users] = await connection.query(
-      'SELresult = await pool.query(
+    const result = await pool.query(
       'SELECT password_hash FROM admin_users WHERE id = $1',
       [adminId]
     );
@@ -363,18 +359,19 @@ router.post('/change-password', isAuthenticated, isAdmin, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const passwordMatch = await bcrypt.compare(currentPassword, result.row
+    const passwordMatch = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+    if (!passwordMatch) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await pool.query(
-      'UPDATE admin_users SET password_hash = ? WHERE id = ?',
+      'UPDATE admin_users SET password_hash = $1 WHERE id = $2',
       [hashedPassword, adminId]
     );
 
-    res.json({ success: true, message: 'Passwo$1 WHERE id = $2cessfully' });
+    res.json({ success: true, message: 'Password changed successfully' });
 
   } catch (error) {
     console.error('Change password error:', error);
@@ -392,11 +389,7 @@ router.post('/trainee/change-password', isAuthenticated, isTrainee, async (req, 
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const connection = await pool.getConnection();
-    const [trainees] = await connection.query(
-      'SELECT system_id, password_hash FROM trainees WHERE id = ?',
-      [traineeId]
-    );result = await pool.query(
+    const result = await pool.query(
       'SELECT system_id, password_hash FROM trainees WHERE id = $1',
       [traineeId]
     );
@@ -405,7 +398,11 @@ router.post('/trainee/change-password', isAuthenticated, isTrainee, async (req, 
       return res.status(404).json({ error: 'Trainee not found' });
     }
 
-    const trainee = result.row bcrypt.compare(currentPassword, trainee.password_hash);
+    const trainee = result.rows[0];
+    let passwordMatch = false;
+
+    if (trainee.password_hash) {
+      passwordMatch = await bcrypt.compare(currentPassword, trainee.password_hash);
     } else {
       passwordMatch = currentPassword === trainee.system_id;
     }
@@ -417,11 +414,11 @@ router.post('/trainee/change-password', isAuthenticated, isTrainee, async (req, 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await pool.query(
-      'UPDATE trainees SET password_hash = ? WHERE id = ?',
+      'UPDATE trainees SET password_hash = $1 WHERE id = $2',
       [hashedPassword, traineeId]
     );
 
-    res.json({ success: true, message: 'Pas$1 WHERE id = $2successfully' });
+    res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error('Trainee change password error:', error);
     res.status(500).json({ error: 'Password change failed' });
@@ -433,9 +430,7 @@ router.get('/password-reset-id/:requestId', isAuthenticated, isAdmin, async (req
   try {
     const { requestId } = req.params;
 
-    const connection = await pool.getConnection();
-    const [requests] = await connection.query(
-      'SELresult = await pool.query(
+    const result = await pool.query(
       'SELECT id_file_path, id_file_name FROM forgot_password_requests WHERE id = $1',
       [requestId]
     );
@@ -445,7 +440,9 @@ router.get('/password-reset-id/:requestId', isAuthenticated, isAdmin, async (req
     }
 
     const filePath = result.rows[0].id_file_path;
-    const fileName = result.row path is within the uploads directory
+    const fileName = result.rows[0].id_file_name;
+
+    // Ensure file path is within the uploads directory
     if (!filePath.startsWith('./uploads/password-reset-ids/')) {
       return res.status(403).json({ error: 'Access denied' });
     }

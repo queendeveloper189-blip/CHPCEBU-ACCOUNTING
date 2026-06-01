@@ -86,9 +86,9 @@ router.get('/dashboard', isAuthenticated, isTrainee, async (req, res) => {
         course: trainee.course,
         schedule: trainee.schedule
       },
-      stats: soaStats[0],
-      latest_soas: latestSoas,
-      pending_requests: pendingRequests
+      stats: soaStatsResult.rows[0],
+      latest_soas: latestSoasResult.rows,
+      pending_requests: pendingRequestsResult.rows
     });
 
   } catch (error) {
@@ -106,16 +106,16 @@ router.get('/password-requests', isAuthenticated, isTrainee, async (req, res) =>
   try {
     const systemId = req.session.systemId;
     
-    const [requests] = await pool.query(
+    const result = await pool.query(
       `SELECT id, request_number, status, message, response_message, created_at, updated_at 
        FROM forgot_password_requests 
-       WHERE user_type = 'trainee' AND identifier = ? 
+       WHERE user_type = 'trainee' AND identifier = $1 
        ORDER BY created_at DESC`,
       [systemId]
     );
 
     // Process requests to extract password if exists
-    const processedRequests = requests.map(req => {
+    const processedRequests = result.rows.map(req => {
       let hasNewPassword = false;
       if (req.message && req.message.includes('New Password:')) {
         hasNewPassword = true;
@@ -143,12 +143,12 @@ router.get('/soa', isAuthenticated, isTrainee, async (req, res) => {
   try {
     const traineeId = req.session.userId;
 
-    const [soas] = await pool.query(
-      'SELECT id, soa_number, issue_date, due_date, total_amount, amount_paid, amount_remaining, status FROM statements_of_account WHERE trainee_id = ? ORDER BY created_at DESC',
+    const result = await pool.query(
+      'SELECT id, soa_number, issue_date, due_date, total_amount, amount_paid, amount_remaining, status FROM statements_of_account WHERE trainee_id = $1 ORDER BY created_at DESC',
       [traineeId]
     );
 
-    res.json(soas);
+    res.json(result.rows);
 
   } catch (error) {
     console.error('Error fetching SOAs:', error);
@@ -163,35 +163,35 @@ router.get('/soa/:id', isAuthenticated, isTrainee, async (req, res) => {
     const soaId = req.params.id;
 
     // Verify trainee owns this SOA and include trainee course and schedule
-    const [soas] = await pool.query(
-      'SELECT soa.*, t.course AS trainee_course, t.schedule AS trainee_schedule, t.system_id, t.first_name, t.last_name FROM statements_of_account soa JOIN trainees t ON soa.trainee_id = t.id WHERE soa.id = ? AND soa.trainee_id = ?',
+    const result = await pool.query(
+      'SELECT soa.*, t.course AS trainee_course, t.schedule AS trainee_schedule, t.system_id, t.first_name, t.last_name FROM statements_of_account soa JOIN trainees t ON soa.trainee_id = t.id WHERE soa.id = $1 AND soa.trainee_id = $2',
       [soaId, traineeId]
     );
 
-    if (soas.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'SOA not found' });
     }
 
-    const [items] = await pool.query(
-      'SELECT * FROM soa_line_items WHERE soa_id = ? ORDER BY order_position',
+    const itemsResult = await pool.query(
+      'SELECT * FROM soa_line_items WHERE soa_id = $1 ORDER BY order_position',
       [soaId]
     );
 
     const soa = {
-      ...soas[0],
-      course: soas[0].trainee_course,
-      schedule: soas[0].trainee_schedule,
+      ...result.rows[0],
+      course: result.rows[0].trainee_course,
+      schedule: result.rows[0].trainee_schedule,
     };
 
     res.json({
       soa,
-      items,
+      items: itemsResult.rows,
       trainee: {
-        course: soas[0].trainee_course,
-        schedule: soas[0].trainee_schedule,
-        system_id: soas[0].system_id,
-        first_name: soas[0].first_name,
-        last_name: soas[0].last_name
+        course: result.rows[0].trainee_course,
+        schedule: result.rows[0].trainee_schedule,
+        system_id: result.rows[0].system_id,
+        first_name: result.rows[0].first_name,
+        last_name: result.rows[0].last_name
       }
     });
 
@@ -206,29 +206,31 @@ router.get('/soa/:id/payments', isAuthenticated, isTrainee, async (req, res) => 
     const traineeId = req.session.userId;
     const soaId = req.params.id;
 
-    const [soas] = await pool.query(
-      'SELECT id, amount_paid FROM statements_of_account WHERE id = ? AND trainee_id = ?',
+    const soaResult = await pool.query(
+      'SELECT id, amount_paid FROM statements_of_account WHERE id = $1 AND trainee_id = $2',
       [soaId, traineeId]
     );
 
-    if (soas.length === 0) {
+    if (soaResult.rows.length === 0) {
       return res.status(404).json({ error: 'SOA not found' });
     }
 
-    const [payments] = await pool.query(
+    const paymentResult = await pool.query(
       `SELECT t.id, t.amount, t.description, t.payment_method, t.created_at,
-        IFNULL(u.full_name, 'Admin') AS recorded_by
+        COALESCE(u.full_name, 'Admin') AS recorded_by
        FROM transactions t
        LEFT JOIN admin_users u ON t.created_by = u.id
-       WHERE t.soa_id = ? AND t.transaction_type = ?
+       WHERE t.soa_id = $1 AND t.transaction_type = $2
        ORDER BY t.created_at DESC`,
       [soaId, 'payment']
     );
 
-    if (payments.length === 0 && parseFloat(soas[0].amount_paid) > 0) {
+    let payments = paymentResult.rows;
+
+    if (payments.length === 0 && parseFloat(soaResult.rows[0].amount_paid) > 0) {
       payments.push({
         id: null,
-        amount: parseFloat(soas[0].amount_paid),
+        amount: parseFloat(soaResult.rows[0].amount_paid),
         description: 'Existing payment total from SOA record',
         payment_method: null,
         created_at: null,
@@ -257,14 +259,14 @@ router.get('/requests', isAuthenticated, isTrainee, async (req, res) => {
     const params = [traineeId];
 
     if (status) {
-      query += ' AND status = ?';
+      query += ' AND status = $2';
       params.push(status);
     }
 
     query += ' ORDER BY created_at DESC';
 
-    const [requests] = await pool.query(query, params);
-    res.json(requests);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
 
   } catch (error) {
     console.error('Error fetching requests:', error);
@@ -279,26 +281,29 @@ router.get('/requests/:id', isAuthenticated, isTrainee, async (req, res) => {
     const requestId = req.params.id;
 
     // Verify trainee owns this request
-    const [requests] = await pool.query(
-      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, \'Unassigned\') as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = $1 AND r.trainee_id = $2',,
+    const requestResult = await pool.query(
+      'SELECT r.id, r.request_number, r.trainee_id, r.request_type, r.request_details, r.status, r.priority, r.assigned_to, r.due_date, r.created_at, r.updated_at, r.completed_at, COALESCE(u.full_name, \'Unassigned\') as assigned_to_name FROM requests r LEFT JOIN admin_users u ON r.assigned_to = u.id WHERE r.id = $1 AND r.trainee_id = $2',
       [requestId, traineeId]
     );
 
-    if (requests.length === 0) {
+    if (requestResult.rows.length === 0) {
       return res.status(404).json({ error: 'Request not found' });
     }
 
     // Get attachments
-    const [attachments] = await pool.query(
-      'SELECT id, file_name, file_path, file_size, uploaded_at FROM request_attachments WHERE request_id = ? ORDER BY uploaded_at DESC',
+    const attachmentResult = await pool.query(
+      'SELECT id, file_name, file_path, file_size, uploaded_at FROM request_attachments WHERE request_id = $1 ORDER BY uploaded_at DESC',
       [requestId]
     );
 
     // Get visible comments
-    const [comments] = await pool.query(
-      'SELECT rc.*, u.full_name as comment_by_name FROM request_comments rc LEFT JOIN admin_users u ON rc.comment_by = u.id WHERE rc.request_id = ? AND rc.is_visible_to_trainee = 1 ORDER BY rc.created_at DESC',
+    const commentResult = await pool.query(
+      'SELECT rc.*, u.full_name as comment_by_name FROM request_comments rc LEFT JOIN admin_users u ON rc.comment_by = u.id WHERE rc.request_id = $1 AND rc.is_visible_to_trainee = 1 ORDER BY rc.created_at DESC',
       [requestId]
     );
+
+    const attachments = attachmentResult.rows;
+    const comments = commentResult.rows;
 
     const normalizedAttachments = attachments.map(att => ({
       ...att,
@@ -306,7 +311,7 @@ router.get('/requests/:id', isAuthenticated, isTrainee, async (req, res) => {
     }));
 
     res.json({
-      request: requests[0],
+      request: requestResult.rows[0],
       attachments: normalizedAttachments,
       comments
     });
@@ -343,7 +348,6 @@ router.post('/requests', isAuthenticated, isTrainee, async (req, res) => {
     // Create notification for trainee
     try {
       await pool.query(
-      await pool.query(
         `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
         [
           traineeId,
@@ -352,7 +356,6 @@ router.post('/requests', isAuthenticated, isTrainee, async (req, res) => {
           'request_update',
           'unread'
         ]
-      );
       );
     } catch (notifError) {
       console.log('Notification table may not exist, skipping notification:', notifError.message);
@@ -395,36 +398,29 @@ router.post('/chpay', isAuthenticated, isTrainee, (req, res) => {
 
       const fileName = req.file ? req.file.filename : null;
       const filePath = req.file ? path.join('uploads', 'chpay', req.file.filename).replace(/\\/g, '/') : null;
-result = await pool.query(
-          'INSERT INTO online_payments (trainee_id, name_of_sender, reference_number, details, amount_sent, file_name, file_path) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
-        const [result] = await pool.query(
-          'INSERT INTO online_payments (trainee_id, name_of_sender, reference_number, details, amount_sent, file_name, file_path) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [traineeId, name_of_sender, reference_number, details || null, amount, fileName, filePath]
+
+      const result = await pool.query(
+        'INSERT INTO online_payments (trainee_id, name_of_sender, reference_number, details, amount_sent, file_name, file_path) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [traineeId, name_of_sender, reference_number, details || null, amount, fileName, filePath]
+      );
+
+      // Create notification for trainee
+      try {
+        await pool.query(
+          `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
+          [
+            traineeId,
+            'CHPay Payment Submitted',
+            `Your CHPay payment submission with reference number ${reference_number} (Amount: ₱${amount.toFixed(2)}) has been received and is being verified. You will be notified once it's been reviewed.`,
+            'chpay_payment',
+            'unread'
+          ]
         );
-
-        // Create notification for trainee
-          await pool.query(
-            `INSERT INTO notifications (trainee_id, title, message, type, status) VALUES ($1, $2, $3, $4, $5)`,
-            [
-              traineeId,
-              'CHPay Payment Submitted',
-              `Your CHPay payment submission with reference number ${reference_number} (Amount: ₱${amount.toFixed(2)}) has been received and is being verified. You will be notified once it's been reviewed.`,
-              'chpay_payment',
-              'unread'
-            ]
-          ); 'payment_approved',
-              'unread'
-            ]
-          );
-        } catch (notifError) {
-          console.log('Notification table may not exist, skipping notification:', notifError.message);
-        }
-
-        return res.status(201).json({ success: true, id: result.insertId });
-      } catch (dbErr) {
-        console.error('DB error inserting CHPay:', dbErr);
-        return res.status(500).json({ error: 'Database error saving CHPay submission' });
+      } catch (notifError) {
+        console.log('Notification table may not exist, skipping notification:', notifError.message);
       }
+
+      return res.status(201).json({ success: true, id: result.insertId });
     } catch (error) {
       console.error('Error processing CHPay submission:', error);
       return res.status(500).json({ error: 'Failed to submit CHPay' });
@@ -436,7 +432,8 @@ result = await pool.query(
 router.get('/chpay', isAuthenticated, isTrainee, async (req, res) => {
   try {
     const traineeId = req.session.userId;
-    const [rows] = await pool.query('SELECT id, name_of_sender, reference_number, details, amount_sent, file_path, status, created_at FROM online_payments WHERE trainee_id = ? ORDER BY created_at DESC', [traineeId]);
+    const result = await pool.query('SELECT id, name_of_sender, reference_number, details, amount_sent, file_path, status, created_at FROM online_payments WHERE trainee_id = $1 ORDER BY created_at DESC', [traineeId]);
+    const rows = result.rows;
     // Normalize file path for serving
     const normalized = rows.map(r => ({ ...r, file_path: r.file_path ? (r.file_path.startsWith('/') ? r.file_path : '/' + r.file_path) : null }));
     res.json(normalized);
@@ -453,28 +450,30 @@ router.get('/soa/:id/download', isAuthenticated, isTrainee, async (req, res) => 
     const soaId = req.params.id;
 
     // Verify trainee owns this SOA
-    const [soas] = await pool.query(
-      'SELECT soa.*, t.system_id, t.first_name, t.last_name, t.course, t.schedule FROM statements_of_account soa JOIN trainees t ON soa.trainee_id = t.id WHERE soa.id = ? AND soa.trainee_id = ?',
+    const soaResult = await pool.query(
+      'SELECT soa.*, t.system_id, t.first_name, t.last_name, t.course, t.schedule FROM statements_of_account soa JOIN trainees t ON soa.trainee_id = t.id WHERE soa.id = $1 AND soa.trainee_id = $2',
       [soaId, traineeId]
     );
 
-    if (soas.length === 0) {
+    if (soaResult.rows.length === 0) {
       return res.status(404).json({ error: 'SOA not found' });
     }
 
-    const [items] = await pool.query(
-      'SELECT * FROM soa_line_items WHERE soa_id = ? ORDER BY order_position',
+    const itemResult = await pool.query(
+      'SELECT * FROM soa_line_items WHERE soa_id = $1 ORDER BY order_position',
       [soaId]
     );
 
     // Get transaction history
-    const [transactions] = await pool.query(
-      'SELECT * FROM transactions WHERE trainee_id = ? ORDER BY created_at DESC LIMIT 10',
+    const transactionResult = await pool.query(
+      'SELECT * FROM transactions WHERE trainee_id = $1 ORDER BY created_at DESC LIMIT 10',
       [traineeId]
     );
 
     const PDFDocument = require('pdfkit');
-    const soa = soas[0];
+    const soa = soaResult.rows[0];
+    const items = itemResult.rows;
+    const transactions = transactionResult.rows;
 
     const amountValue = (value) => {
       const cleaned = String(value).replace(/[^0-9.-]+/g, '');
@@ -644,18 +643,16 @@ router.post('/change-password', isAuthenticated, isTrainee, async (req, res) => 
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const connection = await pool.getConnection();
-    const [trainees] = await connection.query(
-      'SELECT system_id, password_hash FROM trainees WHERE id = ?',
+    const result = await pool.query(
+      'SELECT system_id, password_hash FROM trainees WHERE id = $1',
       [traineeId]
     );
-    connection.release();
 
-    if (trainees.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Trainee not found' });
     }
 
-    const trainee = trainees[0];
+    const trainee = result.rows[0];
     let passwordMatch = false;
 
     if (trainee.password_hash) {
@@ -669,9 +666,9 @@ router.post('/change-password', isAuthenticated, isTrainee, async (req, res) => 
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-$1 WHERE id = $2
+
     await pool.query(
-      'UPDATE trainees SET password_hash = ? WHERE id = ?',
+      'UPDATE trainees SET password_hash = $1 WHERE id = $2',
       [hashedPassword, traineeId]
     );
 
@@ -774,27 +771,27 @@ router.get('/announcements', isAuthenticated, isTrainee, async (req, res) => {
     // Get trainee info to filter announcements by course/schedule
     const traineesResult = await pool.query('SELECT course, schedule FROM trainees WHERE id = $1', [traineeId]);
 
-    if (trainees.length === 0) {
+    if (traineesResult.rows.length === 0) {
       return res.json([]);
     }
 
-    const trainee = trainees[0];
+    const trainee = traineesResult.rows[0];
     const course = trainee.course;
     const schedule = trainee.schedule;
 
     // Get active announcements that apply to this trainee
-    const [announcements] = await pool.query(
+    const announcementResult = await pool.query(
       `SELECT id, title, content, priority, created_at 
        FROM announcements 
-       WHERE is_active = 1 
+       WHERE is_active = 1
        AND (target_audience = 'all' 
-            OR (target_audience = 'specific_course' AND target_course = ?) 
-            OR (target_audience = 'specific_schedule' AND target_schedule = ?))
+            OR (target_audience = 'specific_course' AND target_course = $1) 
+            OR (target_audience = 'specific_schedule' AND target_schedule = $2))
        ORDER BY priority DESC, created_at DESC`,
       [course, schedule]
     );
 
-    res.json(announcements);
+    res.json(announcementResult.rows);
 
   } catch (error) {
     console.error('Error fetching announcements:', error);

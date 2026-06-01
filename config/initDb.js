@@ -21,7 +21,7 @@ async function initializeDatabase() {
     // Try to connect with timeout
     const pool = new Pool({
       connectionString: connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: { rejectUnauthorized: false },
       statement_timeout: 30000
     });
 

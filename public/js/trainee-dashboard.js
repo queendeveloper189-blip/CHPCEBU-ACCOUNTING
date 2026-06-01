@@ -785,10 +785,14 @@ class TraineeDashboard {
       
       html += `
         <div class="notification-item ${unreadClass}" data-id="${notif.id}">
-          <div class="notification-item-title">${notif.title}</div>
+          <div class="notification-item-header">
+            <div class="notification-item-title">${notif.title}</div>
+            <div class="notification-item-time">${timeAgo}</div>
+          </div>
           <div class="notification-item-message">${notif.message}</div>
-          <span class="notification-item-type ${notif.type}">${this.getNotificationTypeLabel(notif.type)}</span>
-          <div class="notification-item-time">${timeAgo}</div>
+          <div class="notification-item-footer">
+            <span class="notification-item-type ${notif.type}">${this.getNotificationTypeLabel(notif.type)}</span>
+          </div>
         </div>
       `;
     });

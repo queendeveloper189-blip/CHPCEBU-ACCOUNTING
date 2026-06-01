@@ -8,7 +8,7 @@ if (process.env.DATABASE_URL) {
   // Use Render's DATABASE_URL (format: postgresql://user:password@host:port/database)
   pgConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: { rejectUnauthorized: false }
   };
   console.log('✓ Using DATABASE_URL (Render format)');
 } else {
@@ -19,7 +19,7 @@ if (process.env.DATABASE_URL) {
     user: process.env.DB_USER || 'admin',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'trainees_accounting_system',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: { rejectUnauthorized: false }
   };
   console.log('✓ Using individual database environment variables');
 }
