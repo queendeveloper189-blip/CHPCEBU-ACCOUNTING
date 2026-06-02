@@ -7,6 +7,22 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../config/database-pg');
 
+// Helper function to determine if error is a connection issue
+function isConnectionError(err) {
+  if (!err) return false;
+  const code = err.code || err.message || '';
+  return (
+    code.includes('ECONNREFUSED') ||
+    code.includes('ENOTFOUND') ||
+    code.includes('timeout') ||
+    code.includes('TIMEOUT') ||
+    code === 'POOL_IDLE_TIMEOUT' ||
+    code === 'connection timeout' ||
+    err.message?.includes('no pg_hba.conf') ||
+    err.message?.includes('could not connect')
+  );
+}
+
 // Create upload directory for ID files
 const uploadDir = './uploads/password-reset-ids';
 if (!fs.existsSync(uploadDir)) {
@@ -119,8 +135,18 @@ router.post('/login', async (req, res) => {
           });
         });
       } catch (queryErr) {
-        console.error('❌ Admin login query error:', queryErr.message);
-        return res.status(503).json({ error: 'Database query failed' });
+        console.error('❌ Admin login query error:', {
+          message: queryErr.message,
+          code: queryErr.code,
+          severity: queryErr.severity
+        });
+        if (isConnectionError(queryErr)) {
+          return res.status(503).json({ 
+            error: 'Database service unavailable',
+            details: 'Unable to authenticate. Database connection failed. Please try again.'
+          });
+        }
+        return res.status(500).json({ error: 'Login failed: ' + queryErr.message });
       }
 
     } else if (userType === 'trainee') {
@@ -182,8 +208,18 @@ router.post('/login', async (req, res) => {
           });
         });
       } catch (queryErr) {
-        console.error('❌ Trainee login query error:', queryErr.message);
-        return res.status(503).json({ error: 'Database query failed' });
+        console.error('❌ Trainee login query error:', {
+          message: queryErr.message,
+          code: queryErr.code,
+          severity: queryErr.severity
+        });
+        if (isConnectionError(queryErr)) {
+          return res.status(503).json({ 
+            error: 'Database service unavailable',
+            details: 'Unable to authenticate. Database connection failed. Please try again.'
+          });
+        }
+        return res.status(500).json({ error: 'Login failed: ' + queryErr.message });
       }
     } else {
       res.status(400).json({ error: 'Invalid user type' });

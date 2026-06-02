@@ -75,9 +75,49 @@ function testConnection() {
 // Start testing connection
 testConnection();
 
-// Handle errors
+// Handle errors and connection issues
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  console.error('❌ Unexpected error on idle client:', err);
+  console.error('  Code:', err.code);
+  console.error('  Severity:', err.severity);
 });
+
+pool.on('connect', () => {
+  console.log('✓ New database connection established');
+});
+
+pool.on('remove', () => {
+  console.log('⚠ Database connection removed from pool');
+});
+
+// Wrap pool.query to add timeout handling
+const originalQuery = pool.query.bind(pool);
+pool.query = async function(text, values, callback) {
+  try {
+    // Add request timeout
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database query timeout (30s)')), 30000)
+    );
+    
+    if (callback) {
+      // Callback style
+      return originalQuery(text, values, callback);
+    } else {
+      // Promise style
+      return Promise.race([
+        originalQuery(text, values),
+        timeoutPromise
+      ]);
+    }
+  } catch (err) {
+    console.error('❌ Database query error:', {
+      message: err.message,
+      code: err.code,
+      severity: err.severity,
+      query: text.substring(0, 100)
+    });
+    throw err;
+  }
+};
 
 module.exports = pool;

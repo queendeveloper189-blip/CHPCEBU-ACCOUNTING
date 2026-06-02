@@ -7,6 +7,22 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+// Helper function to determine if error is a connection issue
+function isConnectionError(err) {
+  if (!err) return false;
+  const code = err.code || err.message || '';
+  return (
+    code.includes('ECONNREFUSED') ||
+    code.includes('ENOTFOUND') ||
+    code.includes('timeout') ||
+    code.includes('TIMEOUT') ||
+    code === 'POOL_IDLE_TIMEOUT' ||
+    code === 'connection timeout' ||
+    err.message?.includes('no pg_hba.conf') ||
+    err.message?.includes('could not connect')
+  );
+}
+
 // File upload for trainee CHPay submissions
 const chpayUploadDir = './uploads/chpay';
 if (!fs.existsSync(chpayUploadDir)) {
@@ -92,7 +108,17 @@ router.get('/dashboard', isAuthenticated, isTrainee, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching dashboard:', error);
+    console.error('\u274c Error fetching dashboard:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity
+    });
+    if (isConnectionError(error)) {
+      return res.status(503).json({ 
+        error: 'Database service unavailable',
+        details: 'Unable to fetch dashboard. Database connection failed. Please try again.'
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch dashboard' });
   }
 });

@@ -8,6 +8,22 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const PDFDocument = require('pdfkit');
 
+// Helper function to determine if error is a connection issue
+function isConnectionError(err) {
+  if (!err) return false;
+  const code = err.code || err.message || '';
+  return (
+    code.includes('ECONNREFUSED') ||
+    code.includes('ENOTFOUND') ||
+    code.includes('timeout') ||
+    code.includes('TIMEOUT') ||
+    code === 'POOL_IDLE_TIMEOUT' ||
+    code === 'connection timeout' ||
+    err.message?.includes('no pg_hba.conf') ||
+    err.message?.includes('could not connect')
+  );
+}
+
 // Middleware
 const isAuthenticated = (req, res, next) => {
   if (!req.session.userId) {
@@ -87,7 +103,18 @@ router.get('/trainees', isAuthenticated, isAdmin, async (req, res) => {
     res.json(result.rows);
 
   } catch (error) {
-    console.error('Error fetching trainees:', error);
+    console.error('❌ Error fetching trainees:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity
+    });
+    
+    if (isConnectionError(error)) {
+      return res.status(503).json({ 
+        error: 'Database service unavailable',
+        details: 'Unable to connect to database. Please try again in a moment.'
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch trainees' });
   }
 });
@@ -438,7 +465,17 @@ router.get('/soa', isAuthenticated, isAdmin, async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching SOAs:', error);
+    console.error('❌ Error fetching SOAs:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity
+    });
+    if (isConnectionError(error)) {
+      return res.status(503).json({ 
+        error: 'Database service unavailable',
+        details: 'Unable to fetch SOAs. Please try again in a moment.'
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch SOAs' });
   }
 });
@@ -801,7 +838,17 @@ router.get('/requests', isAuthenticated, isAdmin, async (req, res) => {
     res.json(result.rows);
 
   } catch (error) {
-    console.error('Error fetching requests:', error);
+    console.error('❌ Error fetching requests:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity
+    });
+    if (isConnectionError(error)) {
+      return res.status(503).json({ 
+        error: 'Database service unavailable',
+        details: 'Unable to fetch requests. Please try again in a moment.'
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch requests' });
   }
 });
