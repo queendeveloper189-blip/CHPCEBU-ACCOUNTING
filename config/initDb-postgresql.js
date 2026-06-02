@@ -2,38 +2,46 @@ const { Pool } = require('pg');
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 
-/**
- * Initialize database and create all required tables for PostgreSQL
- * This is non-blocking - failures don't prevent the server from running
- */
 async function initializeDatabase() {
-  let client = null;
-  try {
-    console.log('🔄 Initializing PostgreSQL database...');
-    
-    // Use the existing pool or create a new client
-    const connectionString = process.env.DATABASE_URL;
-    
-    if (!connectionString) {
-      console.warn('⚠ DATABASE_URL not set, skipping schema initialization');
-      return false;
-    }
+  const maxAttempts = 30;
+  let attempt = 0;
 
-    // Try to connect with timeout
-    const pool = new Pool({
-      connectionString: connectionString,
-      ssl: { rejectUnauthorized: false },
-      statement_timeout: 30000
-    });
+  console.log('🔄 Initializing PostgreSQL database...');
 
-    client = await Promise.race([
-      pool.connect(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Connection timeout')), 35000)
-      )
-    ]);
+  while (attempt < maxAttempts) {
+    attempt++;
+    let client = null;
+    let pool = null;
 
-    console.log('✓ Connected to PostgreSQL server');
+    try {
+      console.log(`  [Attempt ${attempt}/${maxAttempts}] Connecting to database...`);
+
+      const connectionString = process.env.DATABASE_URL;
+
+      if (!connectionString) {
+        console.warn('⚠ DATABASE_URL not set, skipping schema initialization');
+        return false;
+      }
+
+      // Create pool
+      pool = new Pool({
+        connectionString: connectionString,
+        ssl: { rejectUnauthorized: false },
+        statement_timeout: 30000,
+        connectionTimeoutMillis: 5000
+      });
+
+      // Get client with timeout
+      client = await Promise.race([
+        pool.connect(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout (5s)')), 5000)
+        )
+      ]);
+
+      // Test connection
+      await client.query('SELECT NOW()');
+      console.log('  ✓ Connected to PostgreSQL server');
 
     // Create tables with PostgreSQL syntax
     const tables = [
@@ -355,7 +363,7 @@ async function initializeDatabase() {
       `CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`
     ];
 
-    console.log(`Creating ${tables.length} tables and indexes...`);
+    console.log(`  Creating ${tables.length} tables and indexes...`);
 
     let created = 0;
     let skipped = 0;
@@ -367,159 +375,58 @@ async function initializeDatabase() {
       } catch (err) {
         if (err.code === '42P07' || err.code === '42701' || err.message.includes('already exists')) {
           skipped++;
-        } else {
-          console.warn(`⚠ Error: ${err.message}`);
         }
       }
     }
 
-    console.log(`✓ Database tables initialized (${created} new, ${skipped} existing)\n`);
+    console.log(`  ✓ Tables ready (${created} new, ${skipped} existing)`);
 
-    // Insert default admin user if doesn't exist
+    // Ensure default admin exists
     try {
-      const adminCheck = await client.query(
-        'SELECT id FROM admin_users WHERE username = $1',
-        ['admin']
-      );
-
+      const adminCheck = await client.query('SELECT id FROM admin_users WHERE username = $1', ['admin']);
       if (adminCheck.rows.length === 0) {
-        const hashedPassword = await bcrypt.hash('admin123', 10);
+        const hash = await bcrypt.hash('admin123', 10);
         await client.query(
-          `INSERT INTO admin_users (username, email, password_hash, full_name, role, status) 
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          ['admin', 'admin@chpcebu.edu.ph', hashedPassword, 'System Administrator', 'super_admin', 'active']
+          `INSERT INTO admin_users (username, email, password_hash, full_name, role, status) VALUES ($1, $2, $3, $4, $5, $6)`,
+          ['admin', 'admin@chpcebu.edu.ph', hash, 'System Administrator', 'super_admin', 'active']
         );
-        console.log('✓ Default admin user created (username: admin, password: admin123)');
+        console.log(`  ✓ Default admin user created`);
       }
     } catch (err) {
-      console.warn('⚠ Could not ensure default admin user:', err.message);
-    }
-
-    // Insert sample data if needed
-    try {
-      const traineeCheck = await client.query('SELECT COUNT(*) FROM trainees');
-      const traineeCount = parseInt(traineeCheck.rows[0].count);
-
-      if (traineeCount === 0) {
-        console.log('🔄 Inserting sample data...');
-
-        // Insert SOA Templates
-        const templateRes = await client.query(
-          `INSERT INTO soa_templates (course, template_name, description, is_active, created_by) 
-           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          ['Caregiving NCII', 'Caregiving NCII Standard', 'Standard SOA template for Caregiving NCII course', 1, 1]
-        );
-        const templateId = templateRes.rows[0].id;
-
-        // Insert template items
-        const templateItems = [
-          ['Registration Fee', 'fee', 1],
-          ['Tuition Fee', 'fee', 2],
-          ['ID', 'miscellaneous', 3],
-          ['2 Sets Scrub Suit', 'miscellaneous', 4],
-          ['2 Sets Polo Shirt', 'miscellaneous', 5],
-          ['Basic Life Support (BLS)', 'miscellaneous', 6],
-          ['OJT Fee', 'miscellaneous', 7],
-          ['Graduation Fee', 'miscellaneous', 8],
-          ['TOR & Certificate Training', 'miscellaneous', 9],
-          ['OVERALL TOTAL', 'total', 10]
-        ];
-
-        for (const [itemName, itemType, orderPos] of templateItems) {
-          await client.query(
-            `INSERT INTO soa_template_items (template_id, item_name, item_type, order_position)
-             VALUES ($1, $2, $3, $4)`,
-            [templateId, itemName, itemType, orderPos]
-          );
-        }
-
-        // Insert sample trainees
-        const trainees = [
-          ['2024-001', 'Maria', 'Santos', '09171234567', 'maria.santos@email.com', 'Caregiving NCII', 'DAY', '2024-01-15'],
-          ['2024-002', 'Juan', 'dela Cruz', '09175555555', 'juan.delacruz@email.com', 'Caregiving NCII', 'NIGHT', '2024-02-01'],
-          ['2024-003', 'Rosa', 'Garcia', '09179999999', 'rosa.garcia@email.com', 'Caregiving NCII', 'WEEKEND', '2024-01-20'],
-          ['S-001', 'DAISY', 'LIMPANGOG', '09161234567', 'daisy.limpangog@email.com', 'Healthcare Services NCII', 'DAY', '2024-01-10']
-        ];
-
-        const traineeIds = [];
-        for (const [sysId, firstName, lastName, contact, email, course, schedule, dateStarted] of trainees) {
-          const res = await client.query(
-            `INSERT INTO trainees (system_id, first_name, last_name, contact_number, email, course, schedule, date_started, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-            [sysId, firstName, lastName, contact, email, course, schedule, dateStarted, 'active']
-          );
-          traineeIds.push(res.rows[0].id);
-        }
-
-        // Insert sample SOA statements with line items for ALL trainees
-        const soaAmountTemplate = [
-          { total: 25000, items: [5000, 10000, 2500, 2500, 2500, 2500] },
-          { total: 23990, items: [4500, 9500, 2400, 2200, 2100, 3290] },
-          { total: 24500, items: [5000, 9500, 2500, 2500, 2500, 2500] },
-          { total: 26000, items: [5500, 10000, 2500, 2500, 2500, 3000] }
-        ];
-
-        for (let i = 0; i < traineeIds.length; i++) {
-          const traineeId = traineeIds[i];
-          // Use template amount, cycling through if we have more trainees than templates
-          const soaAmount = soaAmountTemplate[i % soaAmountTemplate.length];
-
-          const soaRes = await client.query(
-            `INSERT INTO statements_of_account 
-             (trainee_id, template_id, soa_number, issue_date, due_date, status, total_amount, amount_paid, amount_remaining, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-            [
-              traineeId,
-              templateId,
-              `SOA-2024-${String(1000 + i).slice(-4)}`,
-              '2024-01-15',
-              '2024-02-15',
-              'issued',
-              soaAmount.total,
-              0,
-              soaAmount.total,
-              1
-            ]
-          );
-          const soaId = soaRes.rows[0].id;
-
-          // Insert line items for SOA
-          const itemNames = [
-            'Registration Fee',
-            'Tuition Fee',
-            '2 Sets Scrub Suit',
-            '2 Sets Polo Shirt',
-            'Basic Life Support (BLS)',
-            'OVERALL TOTAL'
-          ];
-
-          for (let j = 0; j < soaAmount.items.length; j++) {
-            await client.query(
-              `INSERT INTO soa_line_items (soa_id, item_name, item_type, amount, order_position)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [soaId, itemNames[j], j === itemNames.length - 1 ? 'total' : 'fee', soaAmount.items[j], j + 1]
-            );
-          }
-        }
-
-        console.log('✓ Sample data inserted (3 trainees, 2 SOA statements)');
-      }
-    } catch (err) {
-      console.warn('⚠ Could not insert sample data:', err.message);
+      console.warn(`  ⚠ Admin user: ${err.message}`);
     }
 
     client.release();
     await pool.end();
-    console.log('✓ Database initialization complete\n');
+
+    console.log('✓ Database initialization successful\n');
     return true;
-  } catch (error) {
-    console.warn('⚠ Database initialization skipped (will retry on connection):', error.message);
-    if (client) {
-      try {
-        client.release();
-      } catch (e) {}
+
+    } catch (error) {
+      if (client) {
+        try {
+          client.release();
+        } catch (e) {}
+      }
+      if (pool) {
+        try {
+          await pool.end();
+        } catch (e) {}
+      }
+
+      console.warn(`  ✗ ${error.message}`);
+
+      if (attempt < maxAttempts) {
+        const delay = Math.min(2000 + (attempt * 1000), 15000);
+        console.log(`  Retrying in ${Math.floor(delay / 1000)}s...\n`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      } else {
+        console.error(`\n❌ Failed to connect after ${maxAttempts} attempts`);
+        console.error('⚠ Server will continue but database operations may fail\n');
+        return false;
+      }
     }
-    return false;
   }
 }
 

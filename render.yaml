@@ -14,4 +14,6 @@ services:
 databases:
   - name: trainees_db
     plan: free
-    mysqlVersion: "8"
+    databaseName: trainees_accounting_system
+    user: admin
+    postgresVersion: "15"
