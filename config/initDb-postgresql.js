@@ -397,7 +397,7 @@ async function initializeDatabase() {
     }
 
     client.release();
-    await pool.end();
+    // DO NOT close the pool - it's needed for the rest of the app!
 
     console.log('✓ Database initialization successful\n');
     return true;
@@ -408,20 +408,22 @@ async function initializeDatabase() {
           client.release();
         } catch (e) {}
       }
-      if (pool) {
-        try {
-          await pool.end();
-        } catch (e) {}
-      }
+      // Only close pool if we're giving up, not on retry
+      const shouldGiveUp = attempt >= maxAttempts;
 
       console.warn(`  ✗ ${error.message}`);
 
-      if (attempt < maxAttempts) {
+      if (!shouldGiveUp) {
         const delay = Math.min(2000 + (attempt * 1000), 15000);
         console.log(`  Retrying in ${Math.floor(delay / 1000)}s...\n`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       } else {
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {}
+        }
         console.error(`\n❌ Failed to connect after ${maxAttempts} attempts`);
         console.error('⚠ Server will continue but database operations may fail\n');
         return false;
