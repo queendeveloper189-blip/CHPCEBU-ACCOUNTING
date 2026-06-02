@@ -378,25 +378,6 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// Debug session - unprotected for troubleshooting
-router.get('/session-debug', (req, res) => {
-  console.log('🔍 Session Debug Info:');
-  console.log('  Session ID:', req.sessionID);
-  console.log('  Session Data:', req.session);
-  console.log('  User ID:', req.session.userId);
-  console.log('  Cookies:', req.headers.cookie);
-  
-  res.json({
-    debug: true,
-    hasSession: !!req.session.userId,
-    sessionId: req.sessionID,
-    userId: req.session.userId,
-    username: req.session.username,
-    userType: req.session.userType,
-    cookies: req.headers.cookie
-  });
-});
-
 // Get current session
 router.get('/session', isAuthenticated, (req, res) => {
   res.json({
