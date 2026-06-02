@@ -42,14 +42,25 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Session Configuration - PostgreSQL Store
+// Session Configuration - PostgreSQL Store with error handling
+const sessionStore = new pgSession({
+  pool: pool,
+  tableName: 'session',
+  createTableIfMissing: true,
+  ttl: 24 * 60 * 60 // 24 hours
+});
+
+// Add error event listener to session store
+sessionStore.on('error', (err) => {
+  console.error('❌ Session Store Error:', err);
+});
+
+sessionStore.on('connect', () => {
+  console.log('✓ Session store connected');
+});
+
 app.use(session({
-  store: new pgSession({
-    pool: pool,
-    tableName: 'session',
-    createTableIfMissing: true,
-    ttl: 24 * 60 * 60 // 24 hours
-  }),
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'default_secret',
   resave: true,
   saveUninitialized: true,
