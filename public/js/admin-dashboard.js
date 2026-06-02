@@ -546,10 +546,16 @@ class AdminDashboard {
   async loadStudents() {
     try {
       const response = await fetch('/api/admin/trainees');
+      if (!response.ok) {
+        console.error('Failed to load students:', response.status, response.statusText);
+        this.displayStudents([]);
+        return;
+      }
       const students = await response.json();
-      this.displayStudents(students);
+      this.displayStudents(Array.isArray(students) ? students : []);
     } catch (error) {
       console.error('Error loading students:', error);
+      this.displayStudents([]);
     }
   }
 
@@ -641,10 +647,16 @@ class AdminDashboard {
   async searchStudents(query) {
     try {
       const response = await fetch(`/api/admin/trainees?search=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        console.error('Failed to search students:', response.status);
+        this.displayStudents([]);
+        return;
+      }
       const students = await response.json();
-      this.displayStudents(students);
+      this.displayStudents(Array.isArray(students) ? students : []);
     } catch (error) {
       console.error('Error searching students:', error);
+      this.displayStudents([]);
     }
   }
 
@@ -790,10 +802,15 @@ class AdminDashboard {
   async loadTemplates() {
     try {
       const response = await fetch('/api/admin/soa-templates');
+      if (!response.ok) {
+        console.error('Failed to load templates:', response.status);
+        document.getElementById('templates-content').innerHTML = '<div class="no-data">Failed to load templates</div>';
+        return;
+      }
       const templates = await response.json();
 
       let html = '';
-      if (templates.length === 0) {
+      if (!Array.isArray(templates) || templates.length === 0) {
         html = '<div class="no-data">No templates found. Create one to get started.</div>';
       } else {
         html = '<div class="row">';
@@ -816,6 +833,7 @@ class AdminDashboard {
       document.getElementById('templates-content').innerHTML = html;
     } catch (error) {
       console.error('Error loading templates:', error);
+      document.getElementById('templates-content').innerHTML = '<div class="no-data">Error loading templates</div>';
     }
   }
 
@@ -900,11 +918,16 @@ class AdminDashboard {
   async loadSOAs() {
     try {
       const response = await fetch('/api/admin/soa');
+      if (!response.ok) {
+        console.error('Failed to load SOAs:', response.status);
+        document.getElementById('soa-content').innerHTML = '<div class="no-data">Failed to load SOAs</div>';
+        return;
+      }
       const soas = await response.json();
-      this.displaySOAs(soas);
+      this.displaySOAs(Array.isArray(soas) ? soas : []);
     } catch (error) {
       console.error('Error loading SOAs:', error);
-      document.getElementById('soa-content').innerHTML = '<div class="no-data">Failed to load SOAs</div>';
+      document.getElementById('soa-content').innerHTML = '<div class="no-data">Error loading SOAs</div>';
     }
   }
 
@@ -928,18 +951,24 @@ class AdminDashboard {
   async loadSOATrainees() {
     try {
       const response = await fetch('/api/admin/trainees');
+      if (!response.ok) {
+        console.error('Failed to load trainees:', response.status);
+        return;
+      }
       const students = await response.json();
       const select = document.getElementById('soa-trainee-select');
       if (!select) return;
       select.innerHTML = '<option value="">Select Student</option>';
-      students.forEach(student => {
-        const option = document.createElement('option');
-        option.value = student.id;
-        option.dataset.course = student.course;
-        option.dataset.schedule = student.schedule;
-        option.textContent = `${student.system_id} — ${student.first_name} ${student.last_name}`;
-        select.appendChild(option);
-      });
+      if (Array.isArray(students)) {
+        students.forEach(student => {
+          const option = document.createElement('option');
+          option.value = student.id;
+          option.dataset.course = student.course;
+          option.dataset.schedule = student.schedule;
+          option.textContent = `${student.system_id} — ${student.first_name} ${student.last_name}`;
+          select.appendChild(option);
+        });
+      }
     } catch (error) {
       console.error('Error loading trainees for SOA:', error);
     }
@@ -948,16 +977,22 @@ class AdminDashboard {
   async loadSOATemplates() {
     try {
       const response = await fetch('/api/admin/soa-templates');
+      if (!response.ok) {
+        console.error('Failed to load templates:', response.status);
+        return;
+      }
       const templates = await response.json();
       const select = document.getElementById('soa-template-select');
       if (!select) return;
       select.innerHTML = '<option value="">Select Template</option>';
-      templates.forEach(template => {
-        const option = document.createElement('option');
-        option.value = template.id;
-        option.textContent = `${template.course} — ${template.template_name}`;
-        select.appendChild(option);
-      });
+      if (Array.isArray(templates)) {
+        templates.forEach(template => {
+          const option = document.createElement('option');
+          option.value = template.id;
+          option.textContent = `${template.course} — ${template.template_name}`;
+          select.appendChild(option);
+        });
+      }
     } catch (error) {
       console.error('Error loading SOA templates:', error);
     }
@@ -1386,6 +1421,11 @@ class AdminDashboard {
       }
 
       const response = await fetch(url);
+      if (!response.ok) {
+        console.error('Failed to load requests:', response.status);
+        document.getElementById('requests-content').innerHTML = '<div class="no-data">Failed to load requests</div>';
+        return;
+      }
       const requests = await response.json();
 
       let html = '<div class="table-responsive"><table class="table"><thead><tr><th>Request #</th>';
@@ -1959,10 +1999,15 @@ class AdminDashboard {
   async loadAnnouncements() {
     try {
       const response = await fetch('/api/admin/announcements', { credentials: 'include' });
+      if (!response.ok) {
+        console.error('Failed to load announcements:', response.status);
+        document.getElementById('announcements-content').innerHTML = '<div class="no-data">Failed to load announcements</div>';
+        return;
+      }
       const announcements = await response.json();
 
       let html = '';
-      if (announcements.length === 0) {
+      if (!Array.isArray(announcements) || announcements.length === 0) {
         html = '<div class="no-data"><i class="bi bi-info-circle" style="font-size:32px; margin-bottom:10px;"></i><p>No announcements yet. Create one to get started!</p></div>';
       } else {
         html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Title</th><th>Priority</th><th>Audience</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
@@ -1990,7 +2035,7 @@ class AdminDashboard {
       document.getElementById('announcements-content').innerHTML = html;
     } catch (error) {
       console.error('Error loading announcements:', error);
-      document.getElementById('announcements-content').innerHTML = '<div class="no-data">Failed to load announcements</div>';
+      document.getElementById('announcements-content').innerHTML = '<div class="no-data">Error loading announcements</div>';
     }
   }
 
