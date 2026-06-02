@@ -482,3 +482,5 @@ This system is built for CHPCEBU Training Center.
 ---
 
 **Ready to use. Production tested. Fully documented.**
+#   R e d e p l o y   t r i g g e r  
+ 
