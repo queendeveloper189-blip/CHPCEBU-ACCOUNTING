@@ -433,3 +433,56 @@ async function initializeDatabase() {
 }
 
 module.exports = initializeDatabase;
+
+    // Ensure default admin exists
+    try {
+      const adminCheck = await client.query('SELECT id FROM admin_users WHERE username = $1', ['admin']);
+      if (adminCheck.rows.length === 0) {
+        const hash = await bcrypt.hash('admin123', 10);
+        await client.query(
+          `INSERT INTO admin_users (username, email, password_hash, full_name, role, status) VALUES ($1, $2, $3, $4, $5, $6)`,
+          ['admin', 'admin@chpcebu.edu.ph', hash, 'System Administrator', 'super_admin', 'active']
+        );
+        console.log(`  ✓ Default admin user created`);
+      }
+    } catch (err) {
+      console.warn(`  ⚠ Admin user: ${err.message}`);
+    }
+
+    client.release();
+    // DO NOT close the pool - it's needed for the rest of the app!
+
+    console.log('✓ Database initialization successful\n');
+    return true;
+
+    } catch (error) {
+      if (client) {
+        try {
+          client.release();
+        } catch (e) {}
+      }
+      // Only close pool if we're giving up, not on retry
+      const shouldGiveUp = attempt >= maxAttempts;
+
+      console.warn(`  ✗ ${error.message}`);
+
+      if (!shouldGiveUp) {
+        const delay = Math.min(2000 + (attempt * 1000), 15000);
+        console.log(`  Retrying in ${Math.floor(delay / 1000)}s...\n`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      } else {
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {}
+        }
+        console.error(`\n❌ Failed to connect after ${maxAttempts} attempts`);
+        console.error('⚠ Server will continue but database operations may fail\n');
+        return false;
+      }
+    }
+  }
+}
+
+module.exports = initializeDatabase;
