@@ -45,17 +45,27 @@ const chpayUpload = multer({
 
 // Middleware
 const isAuthenticated = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+  } catch (error) {
+    console.error('❌ Trainee Auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication check failed', message: error.message });
   }
-  next();
 };
 
 const isTrainee = (req, res, next) => {
-  if (!req.session.userId || req.session.userType !== 'trainee') {
-    return res.status(403).json({ error: 'Trainee access required' });
+  try {
+    if (!req.session || !req.session.userId || req.session.userType !== 'trainee') {
+      return res.status(403).json({ error: 'Trainee access required' });
+    }
+    next();
+  } catch (error) {
+    console.error('❌ Trainee role check error:', error);
+    res.status(500).json({ error: 'Role check failed', message: error.message });
   }
-  next();
 };
 
 // ========================
