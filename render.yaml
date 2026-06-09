@@ -8,12 +8,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SESSION_SECRET
-        generateValue: true
-
-databases:
-  - name: trainees_db
-    plan: free
-    databaseName: trainees_accounting_system
-    user: admin
-    postgresVersion: "15"
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 3000
