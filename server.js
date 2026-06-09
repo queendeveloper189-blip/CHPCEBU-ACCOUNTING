@@ -137,9 +137,18 @@ app.use((req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error'
+  console.error('❌ Global Error Handler:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.status || err.statusCode || 500,
+    url: req.url,
+    method: req.method
+  });
+  
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
+    error: err.message || 'Internal Server Error',
+    status: statusCode
   });
 });
 

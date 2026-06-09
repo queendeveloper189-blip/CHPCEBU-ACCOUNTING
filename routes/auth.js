@@ -54,10 +54,15 @@ const uploadIdFile = multer({
 
 // Middleware for authentication
 const isAuthenticated = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+  } catch (error) {
+    console.error('❌ Auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication check failed', message: error.message });
   }
-  next();
 };
 
 const isAdmin = async (req, res, next) => {
@@ -380,14 +385,19 @@ router.post('/logout', (req, res) => {
 
 // Get current session
 router.get('/session', isAuthenticated, (req, res) => {
-  res.json({
-    userId: req.session.userId,
-    username: req.session.username,
-    userType: req.session.userType,
-    fullName: req.session.fullName || req.session.userFullName,
-    systemId: req.session.systemId || null,
-    role: req.session.role
-  });
+  try {
+    res.json({
+      userId: req.session.userId,
+      username: req.session.username,
+      userType: req.session.userType,
+      fullName: req.session.fullName || req.session.userFullName,
+      systemId: req.session.systemId || null,
+      role: req.session.role
+    });
+  } catch (error) {
+    console.error('❌ Session retrieval error:', error);
+    res.status(500).json({ error: 'Failed to retrieve session', message: error.message });
+  }
 });
 
 // Change password (Admin)
